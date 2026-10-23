@@ -6,7 +6,7 @@ const state = {
   products: [],
   currentUser: null,
   cart: load(STORAGE.cart, []),
-  settings: { currency: "NGN", shippingFee: 3500, freeShippingThreshold: 100000, storeName: "Forma" },
+  settings: { currency: "NGN", shippingFee: 3500, freeShippingThreshold: 100000, storeName: "BeadsbyBambie" },
   csrfToken: "",
   category: "All",
   search: "",
@@ -150,7 +150,7 @@ function renderProducts() {
       <div class="product-info"><div class="product-meta"><h3 class="product-name">${escapeHTML(product.name)}</h3><span class="product-price">${displayPrice(product)}</span></div><p class="product-category">${escapeHTML(product.category)}</p></div>
     </article>`).join("") : `<div class="empty-state"><h3>No pieces found</h3><p>Try another category or search for something else.</p></div>`;
 }
-function openDrawer(title, kicker = "YOUR FORMA") {
+function openDrawer(title, kicker = `YOUR ${state.settings.storeName.toUpperCase()}`) {
   drawerTitle.textContent = title;
   drawerKicker.textContent = kicker;
   overlay.hidden = false;

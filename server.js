@@ -100,6 +100,9 @@ async function initialize() {
   await pool.query(
     "UPDATE public.settings SET currency='NGN',shipping_fee=3500,free_shipping_threshold=100000 WHERE id=1 AND currency='USD' AND shipping_fee=5.95 AND free_shipping_threshold=75",
   );
+  await pool.query(
+    "UPDATE public.settings SET store_name='BeadsbyBambie' WHERE id=1 AND store_name='Forma'",
+  );
   for (const [index, product] of starterProducts.entries()) {
     await pool.query(
       `UPDATE public.products SET name=$2,category=$3,image=$4,price=$5,promo_price=$6,badge=$7,description=$8
@@ -548,7 +551,7 @@ if (process.env.VERCEL) {
   app.get("/app.js", (_req, res) => res.sendFile(path.join(__dirname, "app.js")));
 } else {
   const port = Number(process.env.PORT) || 3000;
-  const server = app.listen(port, () => console.info(`Forma storefront listening at http://localhost:${port}`));
+  const server = app.listen(port, () => console.info(`BeadsbyBambie storefront listening at http://localhost:${port}`));
   function shutdown() {
     server.close(() => {
       pool.end().finally(() => process.exit(0));

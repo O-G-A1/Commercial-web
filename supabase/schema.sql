@@ -32,7 +32,7 @@ create table if not exists public.settings (
   payment_instructions text not null default '',
   shipping_fee numeric(12,2) not null default 3500 check (shipping_fee >= 0),
   free_shipping_threshold numeric(12,2) not null default 100000 check (free_shipping_threshold >= 0),
-  store_name text not null default 'Forma'
+  store_name text not null default 'BeadsbyBambie'
 );
 
 create table if not exists public.orders (

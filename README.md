@@ -1,4 +1,4 @@
-# Forma beaded goods
+# BeadsbyBambie beaded goods
 
 Responsive Nigeria-focused storefront for hand-beaded bags, clutches, jewellery, and accessories, with customer accounts, owner product management, photo uploads, carts, orders, and manual bank-transfer checkout. Production data is stored in Supabase Postgres; product photos are stored in Supabase Storage. The app is configured for Vercel Functions.
 
