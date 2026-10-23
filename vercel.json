@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "server.js": {
+      "includeFiles": [
+        "index.html",
+        "app.js",
+        "styles.css",
+        "supabase/prod-ca-2021.crt"
+      ]
+    }
+  }
+}
