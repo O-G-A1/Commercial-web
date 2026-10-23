@@ -55,14 +55,28 @@ const sessionStore = new PgSessionStore({
 });
 
 const starterProducts = [
-  ["p-01", "Sculptural Stoneware Vase", "Home", "https://images.unsplash.com/photo-1578500494198-246f612d3b3d?auto=format&fit=crop&w=900&q=80", 68, 54, "Bestseller", "A hand-finished ceramic vase with a softly sculptural silhouette."],
-  ["p-02", "Everyday Linen Throw", "Living", "https://images.unsplash.com/photo-1600369671236-e74521d4b6ad?auto=format&fit=crop&w=900&q=80", 92, null, "", "Relaxed European linen, woven for a softer everyday."],
-  ["p-03", "Ripple Glass Carafe", "Home", "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&w=900&q=80", 44, null, "Just in", "A tactile glass carafe for your table, bedside, or slow mornings."],
-  ["p-04", "Arc Everyday Tote", "Accessories", "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=900&q=80", 78, 62, "Save 20%", "A roomy, easy-to-carry tote made for wherever the day goes."],
-  ["p-05", "Soft Form Candle", "Living", "https://images.unsplash.com/photo-1603006905003-be475563bc59?auto=format&fit=crop&w=900&q=80", 36, null, "", "A warm, woodsy blend poured slowly in a reusable vessel."],
-  ["p-06", "Daily Carry Pouch", "Accessories", "https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=900&q=80", 32, null, "", "Keep small essentials close with a considered canvas pouch."],
-  ["p-07", "Sunday Serving Bowl", "Home", "https://images.unsplash.com/photo-1490312278390-ab64016e0aa9?auto=format&fit=crop&w=900&q=80", 58, 46, "Limited offer", "A generously sized stoneware bowl for shared tables."],
-  ["p-08", "Woven Market Basket", "Accessories", "https://images.unsplash.com/photo-1591561954557-26941169b49e?auto=format&fit=crop&w=900&q=80", 64, null, "", "An everyday basket with room for market finds and more."],
+  ["p-01", "Pearl Glow Beaded Clutch", "Evening Bags", "https://images.pexels.com/photos/28387111/pexels-photo-28387111/free-photo-of-a-gold-purse-on-a-wooden-table.jpeg?auto=compress&cs=tinysrgb&w=900", 48000, 42000, "Bestseller", "A hand-finished statement clutch, made for celebrations, dinners and every reason to dress up."],
+  ["p-02", "Colour Pop Beaded Shoulder Bag", "Beaded Bags", "https://images.pexels.com/photos/33574332/pexels-photo-33574332/free-photo-of-colorful-beaded-handbags-and-jewelry-display.jpeg?auto=compress&cs=tinysrgb&w=900", 58000, null, "Just in", "A joyful pop of colour, finished with careful beadwork and a comfortable shoulder strap."],
+  ["p-03", "Dewdrop Crystal Mini Bag", "Evening Bags", "https://images.pexels.com/photos/28387111/pexels-photo-28387111/free-photo-of-a-gold-purse-on-a-wooden-table.jpeg?auto=compress&cs=tinysrgb&w=900", 68000, null, "New", "A compact conversation starter with light-catching details and room for your evening essentials."],
+  ["p-04", "Everyday Beaded Crossbody", "Beaded Bags", "https://images.pexels.com/photos/9777614/pexels-photo-9777614.jpeg?auto=compress&cs=tinysrgb&w=900", 72000, 65000, "Customer favourite", "Hands-free, full of personality and ready to go wherever your day takes you."],
+  ["p-05", "Golden Hour Bead Handle Bag", "Beaded Bags", "https://images.pexels.com/photos/33574332/pexels-photo-33574332/free-photo-of-colorful-beaded-handbags-and-jewelry-display.jpeg?auto=compress&cs=tinysrgb&w=900", 85000, null, "Statement piece", "A standout beaded handle bag that brings a little extra occasion to your outfit."],
+  ["p-06", "Petal Party Beaded Purse", "Evening Bags", "https://images.pexels.com/photos/28387111/pexels-photo-28387111/free-photo-of-a-gold-purse-on-a-wooden-table.jpeg?auto=compress&cs=tinysrgb&w=900", 39000, null, "", "Playful colour and floral-inspired beadwork come together in this charming little purse."],
+  ["p-07", "Beaded Phone & Coin Pouch", "Accessories", "https://images.pexels.com/photos/9777614/pexels-photo-9777614.jpeg?auto=compress&cs=tinysrgb&w=900", 28000, null, "", "A handy little pouch for the small essentials, finished with a touch of sparkle."],
+  ["p-08", "Starlight Beaded Earrings", "Jewellery", "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=900&q=80", 18000, null, "Made to shine", "Lightweight beaded earrings with a little shimmer for everyday outfits and special plans."],
+];
+const legacyStarterNames = [
+  "Sculptural Stoneware Vase", "Everyday Linen Throw", "Ripple Glass Carafe", "Arc Everyday Tote",
+  "Soft Form Candle", "Daily Carry Pouch", "Sunday Serving Bowl", "Woven Market Basket",
+];
+const legacyStarterImages = [
+  "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1591561954557-26941169b49e?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=900&q=80",
 ];
 
 const scrypt = promisify(crypto.scrypt);
@@ -80,8 +94,22 @@ async function verifyPassword(password, storedHash) {
 }
 
 async function initialize() {
-  await pool.query("INSERT INTO public.settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING");
-  for (const product of starterProducts) {
+  await pool.query(
+    "INSERT INTO public.settings (id,currency,shipping_fee,free_shipping_threshold) VALUES (1,'NGN',3500,100000) ON CONFLICT (id) DO NOTHING",
+  );
+  await pool.query(
+    "UPDATE public.settings SET currency='NGN',shipping_fee=3500,free_shipping_threshold=100000 WHERE id=1 AND currency='USD' AND shipping_fee=5.95 AND free_shipping_threshold=75",
+  );
+  for (const [index, product] of starterProducts.entries()) {
+    await pool.query(
+      `UPDATE public.products SET name=$2,category=$3,image=$4,price=$5,promo_price=$6,badge=$7,description=$8
+       WHERE id=$1 AND name=$9`,
+      [...product.slice(0, 8), legacyStarterNames[index]],
+    );
+    await pool.query(
+      "UPDATE public.products SET image=$3 WHERE id=$1 AND name=$2 AND image=$4",
+      [product[0], product[1], product[3], legacyStarterImages[index]],
+    );
     await pool.query(
       `INSERT INTO public.products (id,name,category,image,price,promo_price,badge,description)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (id) DO NOTHING`,
@@ -121,7 +149,7 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       baseUri: ["'self'"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
-      imgSrc: ["'self'", "data:", "https://images.unsplash.com", "https://*.supabase.co"],
+      imgSrc: ["'self'", "data:", "https://images.unsplash.com", "https://images.pexels.com", "https://*.supabase.co"],
       objectSrc: ["'none'"],
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "https://fonts.googleapis.com"],

@@ -25,13 +25,13 @@ create table if not exists public.products (
 
 create table if not exists public.settings (
   id integer primary key check (id = 1),
-  currency text not null default 'USD',
+  currency text not null default 'NGN',
   bank_name text not null default '',
   account_name text not null default '',
   account_number text not null default '',
   payment_instructions text not null default '',
-  shipping_fee numeric(12,2) not null default 5.95 check (shipping_fee >= 0),
-  free_shipping_threshold numeric(12,2) not null default 75 check (free_shipping_threshold >= 0),
+  shipping_fee numeric(12,2) not null default 3500 check (shipping_fee >= 0),
+  free_shipping_threshold numeric(12,2) not null default 100000 check (free_shipping_threshold >= 0),
   store_name text not null default 'Forma'
 );
 

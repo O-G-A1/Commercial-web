@@ -1,6 +1,6 @@
-# Forma commerce
+# Forma beaded goods
 
-Responsive storefront and Express backend for customer accounts, owner administration, product photos, carts, orders, and manual bank-transfer checkout. Production data is stored in Supabase Postgres; product photos are stored in Supabase Storage. The app is configured for Vercel Functions.
+Responsive Nigeria-focused storefront for hand-beaded bags, clutches, jewellery, and accessories, with customer accounts, owner product management, photo uploads, carts, orders, and manual bank-transfer checkout. Production data is stored in Supabase Postgres; product photos are stored in Supabase Storage. The app is configured for Vercel Functions.
 
 ## Supabase setup
 
@@ -18,7 +18,7 @@ Responsive storefront and Express backend for customer accounts, owner administr
    - `ADMIN_EMAIL`: owner login.
    - `ADMIN_PASSWORD`: a unique password of at least 12 characters.
 
-The first server initialization creates the public `product-images` bucket if needed, adds the default settings, seeds the sample catalog when missing, and creates the owner account if its email is not already present. Existing SQLite users, orders, and products are not automatically migrated; start with the seeded catalog or arrange a data import before switching over.
+The first server initialization creates the public `product-images` bucket if needed, adds NGN store settings (₦3,500 shipping and free shipping from ₦100,000), seeds beaded-product examples when missing, and creates the owner account if its email is not already present. On startup, the app replaces only unchanged built-in sample products with the beaded examples. It changes the legacy USD/default shipping settings only when those settings still match their untouched starter values; custom products, owner-edited products, bank details, and orders are preserved. Example catalog prices and stock photos are placeholders—replace them with your actual prices and product photos in the owner dashboard.
 
 ## Run locally
 
