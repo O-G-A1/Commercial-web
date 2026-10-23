@@ -273,7 +273,12 @@ function renderAdminProducts() {
 }
 function renderProductForm(id) {
   const product = id ? state.products.find(item => item.id === id) : null;
-  return `<h3 class="admin-section-title">${product ? "Edit product" : "Add a product"}</h3><form class="form-stack" id="product-form"><label>Product name<input name="name" required value="${escapeHTML(product?.name || "")}"></label><label>Category<input name="category" required value="${escapeHTML(product?.category || "")}" placeholder="Beaded Bags, Accessories, Jewellery"></label><label>Product photo<input name="imageFile" type="file" accept="image/jpeg,image/png,image/webp"></label><label>Or use an HTTPS image URL<input name="image" type="url" value="${escapeHTML(product?.image?.startsWith("/uploads/") ? "" : product?.image || "")}" placeholder="https://..."></label><p class="form-hint">JPG, PNG, or WebP files up to 8 MB are stored in your product-image library.</p><label>Regular price (${escapeHTML(state.settings.currency)})<input name="price" type="number" min="0.01" step="1" required value="${escapeHTML(product?.price ?? "")}"></label><label>Promo price — optional<input name="promoPrice" type="number" min="0.01" step="1" value="${escapeHTML(product?.promoPrice ?? "")}" placeholder="Leave blank for no promotion"></label><label>Badge — optional<input name="badge" value="${escapeHTML(product?.badge || "")}" placeholder="Bestseller, Just in..."></label><label>Description<textarea name="description">${escapeHTML(product?.description || "")}</textarea></label><button class="full-button">${product ? "Save product" : "Add product"}</button><button type="button" class="link-button" data-action="cancel-product">Cancel</button></form>`;
+  return `<h3 class="admin-section-title">${product ? "Edit product" : "Add a product"}</h3><form class="form-stack" id="product-form"><label>Product name<input name="name" required value="${escapeHTML(product?.name || "")}"></label><label>Category<input name="category" required value="${escapeHTML(product?.category || "")}" placeholder="Beaded Bags, Accessories, Jewellery"></label><label>Product photo<input name="imageFile" type="file" accept="image/jpeg,image/png,image/webp"></label><label>Or use an HTTPS image URL<input name="image" type="url" value="${escapeHTML(product?.image?.startsWith("/uploads/") ? "" : product?.image || "")}" placeholder="https://..."></label><p class="form-hint">JPG, PNG, or WebP files up to 8 MB are stored in your product-image library.</p><label>Regular price (${escapeHTML(state.settings.currency)})<input name="price" type="text" inputmode="decimal" required value="${escapeHTML(product?.price ?? "")}" placeholder="e.g. 25,000"></label><label>Promo price — optional<input name="promoPrice" type="text" inputmode="decimal" value="${escapeHTML(product?.promoPrice ?? "")}" placeholder="Leave blank for no promotion"></label><label>Badge — optional<input name="badge" value="${escapeHTML(product?.badge || "")}" placeholder="Bestseller, Just in..."></label><label>Description<textarea name="description">${escapeHTML(product?.description || "")}</textarea></label><button class="full-button">${product ? "Save product" : "Add product"}</button><button type="button" class="link-button" data-action="cancel-product">Cancel</button></form>`;
+}
+function parsePrice(value) {
+  const text = String(value).trim();
+  if (!/^\d+(?:,\d{3})*(?:\.\d{1,2})?$/.test(text)) return NaN;
+  return Number(text.replaceAll(",", ""));
 }
 function renderAdminOrders() {
   const orders = state.adminOrders || [];
@@ -430,10 +435,10 @@ document.addEventListener("submit", async event => {
   } else if (form.id === "product-form") {
     event.preventDefault();
     const values = formObject(form);
-    const price = Number(values.price);
-    const promoPrice = values.promoPrice ? Number(values.promoPrice) : null;
-    if (!Number.isFinite(price) || price <= 0 || (promoPrice !== null && (!Number.isFinite(promoPrice) || promoPrice <= 0 || promoPrice >= price))) {
-      return showToast("Enter a valid regular price and a lower promo price.");
+    const price = parsePrice(values.price);
+    const promoPrice = values.promoPrice.trim() ? parsePrice(values.promoPrice) : null;
+    if (!Number.isFinite(price) || price <= 0 || price > 10000000 || (promoPrice !== null && (!Number.isFinite(promoPrice) || promoPrice <= 0 || promoPrice >= price))) {
+      return showToast("Enter a valid price (commas are okay); any promo price must be lower than the regular price.");
     }
     const existing = state.products.find(item => item.id === state.editingProduct);
     const imageFile = $('input[name="imageFile"]', form).files[0];
