@@ -57,7 +57,8 @@ create table if not exists public.order_items (
   product_id text not null,
   name text not null,
   quantity integer not null check (quantity > 0),
-  unit_price numeric(12,2) not null
+  unit_price numeric(12,2) not null,
+  custom_description text not null default ''
 );
 
 create table if not exists public.cart_items (

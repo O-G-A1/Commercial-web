@@ -95,6 +95,9 @@ async function verifyPassword(password, storedHash) {
 
 async function initialize() {
   await pool.query(
+    "ALTER TABLE public.order_items ADD COLUMN IF NOT EXISTS custom_description text NOT NULL DEFAULT ''",
+  );
+  await pool.query(
     "INSERT INTO public.settings (id,currency,shipping_fee,free_shipping_threshold) VALUES (1,'NGN',3500,100000) ON CONFLICT (id) DO NOTHING",
   );
   await pool.query(
@@ -228,7 +231,7 @@ function productFromRow(row) {
 }
 async function orderFromRow(row, client = pool) {
   const { rows } = await client.query(
-    "SELECT product_id AS \"productId\", name, quantity, unit_price AS \"unitPrice\" FROM public.order_items WHERE order_id = $1 ORDER BY id",
+    "SELECT product_id AS \"productId\", name, quantity, unit_price AS \"unitPrice\", custom_description AS \"customDescription\" FROM public.order_items WHERE order_id = $1 ORDER BY id",
     [row.id],
   );
   return {
@@ -471,11 +474,15 @@ app.post("/api/orders", checkoutLimiter, requireAuth, requireCsrf, async (req, r
     const requestedItems = req.body.items;
     if (!Array.isArray(requestedItems) || requestedItems.length < 1 || requestedItems.length > 50) return res.status(400).json({ error: "Your bag must have between 1 and 50 products." });
     const quantities = new Map();
+    const customDescriptions = new Map();
     for (const item of requestedItems) {
       const id = String(item.productId || "");
       const quantity = Number(item.quantity);
       if (!id || !Number.isInteger(quantity) || quantity < 1 || quantity > 20) return res.status(400).json({ error: "Each item quantity must be between 1 and 20." });
+      const customDescription = String(item.customDescription || "").trim();
+      if (customDescription.length > 500) return res.status(400).json({ error: "Product requests must be 500 characters or less." });
       quantities.set(id, (quantities.get(id) || 0) + quantity);
+      customDescriptions.set(id, customDescription);
     }
     if ([...quantities.values()].some(quantity => quantity > 20)) return res.status(400).json({ error: "Each item quantity must be 20 or less." });
     client = await pool.connect();
@@ -485,7 +492,7 @@ app.post("/api/orders", checkoutLimiter, requireAuth, requireCsrf, async (req, r
       const { rows } = await client.query("SELECT * FROM public.products WHERE id=$1 FOR SHARE", [id]);
       if (!rows.length) throw Object.assign(new Error("A product in your bag is no longer available. Refresh your bag and try again."), { status: 400 });
       const row = rows[0];
-      products.push({ row, quantity, unitPrice: Number(row.promo_price) > 0 && Number(row.promo_price) < Number(row.price) ? Number(row.promo_price) : Number(row.price) });
+      products.push({ row, quantity, customDescription: customDescriptions.get(id) || "", unitPrice: Number(row.promo_price) > 0 && Number(row.promo_price) < Number(row.price) ? Number(row.promo_price) : Number(row.price) });
     }
     const subtotal = Math.round(products.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) * 100) / 100;
     const { rows: settingsRows } = await client.query("SELECT * FROM public.settings WHERE id=1");
@@ -501,8 +508,8 @@ app.post("/api/orders", checkoutLimiter, requireAuth, requireCsrf, async (req, r
     );
     for (const item of products) {
       await client.query(
-        "INSERT INTO public.order_items (order_id,product_id,name,quantity,unit_price) VALUES ($1,$2,$3,$4,$5)",
-        [orderId, item.row.id, item.row.name, item.quantity, item.unitPrice],
+        "INSERT INTO public.order_items (order_id,product_id,name,quantity,unit_price,custom_description) VALUES ($1,$2,$3,$4,$5,$6)",
+        [orderId, item.row.id, item.row.name, item.quantity, item.unitPrice, item.customDescription],
       );
     }
     await client.query("DELETE FROM public.cart_items WHERE user_id=$1", [req.session.user.id]);
