@@ -130,7 +130,7 @@ async function initialize() {
       "SELECT id, role FROM public.users WHERE email = $1 FOR UPDATE",
       [adminEmail],
     );
-    if (targetRows.length && targetRows[0].role !== "admin") {
+    if (targetRows.length && targetRows[0].role !== "admin" && !migrateAdminCredentials) {
       throw new Error("ADMIN_EMAIL already belongs to a customer account. Configure a separate owner email.");
     }
     const { rows: admins } = await credentialClient.query(
@@ -139,7 +139,20 @@ async function initialize() {
     if (admins.length > 1) {
       throw new Error("Multiple owner accounts exist. Resolve them before migrating owner credentials.");
     }
-    if (migrateAdminCredentials && admins.length === 1) {
+    if (migrateAdminCredentials && targetRows.length && targetRows[0].role === "customer") {
+      const newPasswordHash = await hashPassword(adminPassword);
+      await credentialClient.query(
+        "UPDATE public.users SET role = 'admin', password_hash = $1 WHERE id = $2",
+        [newPasswordHash, targetRows[0].id],
+      );
+      if (admins.length === 1) {
+        await credentialClient.query(
+          "UPDATE public.users SET role = 'customer' WHERE id = $1",
+          [admins[0].id],
+        );
+      }
+      console.info("Owner login credentials migrated to the existing account.");
+    } else if (migrateAdminCredentials && admins.length === 1) {
       await credentialClient.query(
         "UPDATE public.users SET email = $1, password_hash = $2 WHERE id = $3",
         [adminEmail, await hashPassword(adminPassword), admins[0].id],
@@ -231,9 +244,20 @@ function requireAuth(req, res, next) {
   if (!req.session.user) return res.status(401).json({ error: "Please sign in to continue." });
   next();
 }
-function requireAdmin(req, res, next) {
-  if (req.session.user?.role !== "admin") return res.status(403).json({ error: "Owner access is required." });
-  next();
+async function requireAdmin(req, res, next) {
+  try {
+    if (!req.session.user) return res.status(401).json({ error: "Please sign in to continue." });
+    const { rows } = await pool.query(
+      "SELECT name, email, role FROM public.users WHERE id = $1",
+      [req.session.user.id],
+    );
+    if (!rows.length) return res.status(403).json({ error: "Owner access is required." });
+    Object.assign(req.session.user, rows[0]);
+    if (req.session.user.role !== "admin") return res.status(403).json({ error: "Owner access is required." });
+    next();
+  } catch (error) {
+    next(error);
+  }
 }
 function requireCsrf(req, res, next) {
   const expected = req.session.csrfToken;
