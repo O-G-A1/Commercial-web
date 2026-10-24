@@ -229,6 +229,16 @@ app.use(session({
   },
 }));
 app.get("/owner.html", (_req, res) => res.sendFile(path.join(__dirname, "index.html")));
+const heroImages = new Set([
+  "cowrie-jewellery.jpg",
+  "beaded-bags.jpg",
+  "colourful-bags.jpg",
+  "beaded-keychains.jpg",
+]);
+app.get("/images/hero/:image", (req, res, next) => {
+  if (!heroImages.has(req.params.image)) return next();
+  res.sendFile(path.join(__dirname, "public", "images", "hero", req.params.image));
+});
 if (!process.env.VERCEL) {
   app.use(express.static(__dirname, { dotfiles: "deny", index: "index.html" }));
 }

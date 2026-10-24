@@ -67,14 +67,45 @@
         </div>
         <div
           class="hero-image"
-          role="img"
-          aria-label="A colourful display of beaded bags and accessories"
+          aria-label="Handmade beaded products from BeadsbyBambie"
         >
+          <div class="hero-slides" aria-live="polite">
+            <img
+              class="hero-slide is-active"
+              src="/images/hero/cowrie-jewellery.jpg"
+              alt="Handmade cowrie shell jewellery displayed on branded cards"
+              fetchpriority="high"
+            />
+            <img
+              class="hero-slide"
+              src="/images/hero/beaded-bags.jpg"
+              alt="A sparkling blue beaded handbag among colourful handmade bags"
+              loading="lazy"
+            />
+            <img
+              class="hero-slide"
+              src="/images/hero/colourful-bags.jpg"
+              alt="A collection of colourful beaded bags"
+              loading="lazy"
+            />
+            <img
+              class="hero-slide"
+              src="/images/hero/beaded-keychains.jpg"
+              alt="Personalized beaded keychains in bright colours"
+              loading="lazy"
+            />
+          </div>
           <div class="hero-image-label">
             <span>THE TRENDY BEAD SPOT</span
             ><strong>Carry a little joy.</strong>
           </div>
-          <span class="hero-image-number">01 / 04</span>
+          <div class="hero-slide-controls" role="group" aria-label="Featured images">
+            <button class="hero-slide-dot is-active" type="button" aria-label="Show image 1" aria-pressed="true"></button>
+            <button class="hero-slide-dot" type="button" aria-label="Show image 2" aria-pressed="false"></button>
+            <button class="hero-slide-dot" type="button" aria-label="Show image 3" aria-pressed="false"></button>
+            <button class="hero-slide-dot" type="button" aria-label="Show image 4" aria-pressed="false"></button>
+          </div>
+          <span class="hero-image-number" aria-live="off">01 / 04</span>
         </div>
       </section>
 

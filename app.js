@@ -296,6 +296,45 @@ function formObject(form) {
 }
 $("#year").textContent = new Date().getFullYear();
 updateCartCount();
+const heroSlides = $$(".hero-slide");
+const heroSlideDots = $$(".hero-slide-dot");
+if (heroSlides.length > 1 && heroSlides.length === heroSlideDots.length) {
+  const hero = $(".hero-image");
+  const slideNumber = $(".hero-image-number");
+  let currentSlide = 0;
+  let slideTimer;
+  function showHeroSlide(index) {
+    currentSlide = (index + heroSlides.length) % heroSlides.length;
+    heroSlides.forEach((slide, slideIndex) => {
+      const active = slideIndex === currentSlide;
+      slide.classList.toggle("is-active", active);
+      if (active) hero.style.setProperty("--slide-image", `url("${slide.src}")`);
+    });
+    heroSlideDots.forEach((dot, dotIndex) => {
+      const active = dotIndex === currentSlide;
+      dot.classList.toggle("is-active", active);
+      dot.setAttribute("aria-pressed", String(active));
+    });
+    slideNumber.textContent = `${String(currentSlide + 1).padStart(2, "0")} / ${String(heroSlides.length).padStart(2, "0")}`;
+  }
+  function startHeroTimer() {
+    clearInterval(slideTimer);
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches && !document.hidden) {
+      slideTimer = setInterval(() => showHeroSlide(currentSlide + 1), 6000);
+    }
+  }
+  heroSlideDots.forEach((dot, index) => dot.addEventListener("click", () => {
+    showHeroSlide(index);
+    startHeroTimer();
+  }));
+  document.addEventListener("visibilitychange", startHeroTimer);
+  hero.addEventListener("pointerenter", () => clearInterval(slideTimer));
+  hero.addEventListener("pointerleave", startHeroTimer);
+  hero.addEventListener("focusin", () => clearInterval(slideTimer));
+  hero.addEventListener("focusout", startHeroTimer);
+  showHeroSlide(0);
+  startHeroTimer();
+}
 api("/api/bootstrap").then(async data => {
   state.products = data.products;
   state.settings = { ...state.settings, ...data.settings };
