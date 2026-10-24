@@ -12,6 +12,7 @@ const state = {
   search: "",
   sort: "featured",
   adminTab: "products",
+  adminCustomers: [],
   editingProduct: null,
 };
 
@@ -305,12 +306,13 @@ function openAdmin(tab = "products") {
   renderAdmin();
 }
 async function renderAdmin() {
-  const tabs = ["products", "orders", "settings"];
+  const tabs = ["products", "orders", "customers", "settings"];
   drawerContent.innerHTML = `<div class="admin-tabs">${tabs.map(tab => `<button class="admin-tab${state.adminTab === tab ? " active" : ""}" data-admin-tab="${tab}">${tab[0].toUpperCase()}${tab.slice(1)}</button>`).join("")}</div><p class="muted">Loading…</p>`;
   try {
     if (state.adminTab === "orders") ({ orders: state.adminOrders } = await api("/api/admin/orders"));
+    if (state.adminTab === "customers") ({ customers: state.adminCustomers } = await api("/api/admin/customers"));
     if (state.adminTab === "settings") ({ settings: state.settings } = await api("/api/admin/settings"));
-    drawerContent.innerHTML = `<div class="admin-tabs">${tabs.map(tab => `<button class="admin-tab${state.adminTab === tab ? " active" : ""}" data-admin-tab="${tab}">${tab[0].toUpperCase()}${tab.slice(1)}</button>`).join("")}</div>${state.adminTab === "products" ? renderAdminProducts() : state.adminTab === "orders" ? renderAdminOrders() : renderAdminSettings()}`;
+    drawerContent.innerHTML = `<div class="admin-tabs">${tabs.map(tab => `<button class="admin-tab${state.adminTab === tab ? " active" : ""}" data-admin-tab="${tab}">${tab[0].toUpperCase()}${tab.slice(1)}</button>`).join("")}</div>${state.adminTab === "products" ? renderAdminProducts() : state.adminTab === "orders" ? renderAdminOrders() : state.adminTab === "customers" ? renderAdminCustomers() : renderAdminSettings()}`;
   } catch (error) {
     drawerContent.innerHTML = `<p class="muted">${escapeHTML(error.message)}</p>`;
   }
@@ -331,6 +333,10 @@ function parsePrice(value) {
 function renderAdminOrders() {
   const orders = state.adminOrders || [];
   return `<h3 class="admin-section-title">Customer orders (${orders.length})</h3>${orders.length ? orders.map(order => `<div class="admin-order"><div class="admin-order-top"><span>${escapeHTML(order.reference)}</span><span>${formatCurrency(order.total, order.currency)}</span></div><p>${escapeHTML(order.customerName)} · ${escapeHTML(order.customerEmail)}</p><p>Subtotal ${formatCurrency(order.subtotal, order.currency)} · Delivery ${formatCurrency(order.shipping, order.currency)}</p>${order.items.map(item => `<p>${escapeHTML(item.name)} × ${item.quantity}${item.customDescription ? `<br><strong>Customer request:</strong> ${escapeHTML(item.customDescription)}` : ""}</p>`).join("")}<p>${escapeHTML(order.address)}</p><span class="status-tag">${escapeHTML(order.status)}</span><label class="form-label">Update status<select class="status-select" data-order-status="${escapeHTML(order.reference)}"><option${order.status === "Awaiting payment" ? " selected" : ""}>Awaiting payment</option><option${order.status === "Payment received" ? " selected" : ""}>Payment received</option><option${order.status === "Processing" ? " selected" : ""}>Processing</option><option${order.status === "Shipped" ? " selected" : ""}>Shipped</option><option${order.status === "Completed" ? " selected" : ""}>Completed</option><option${order.status === "Cancelled" ? " selected" : ""}>Cancelled</option></select></label></div>`).join("") : `<p class="muted">Orders placed by customers will appear here.</p>`}`;
+}
+function renderAdminCustomers() {
+  const customers = state.adminCustomers || [];
+  return `<h3 class="admin-section-title">Customer accounts (${customers.length})</h3><p class="form-hint">Deleting an account removes its login, saved cart, newsletter subscription, and personal details from past orders. Order items, totals, and status remain in your records.</p>${customers.length ? customers.map(customer => `<div class="admin-customer"><div class="admin-customer-details"><strong>${escapeHTML(customer.name)}</strong><span>${escapeHTML(customer.email)}</span><small>${customer.orderCount} ${customer.orderCount === 1 ? "order" : "orders"} · Joined ${escapeHTML(new Date(customer.createdAt).toLocaleDateString())}</small></div><button class="admin-customer-delete" type="button" data-customer-delete="${escapeHTML(customer.id)}">Delete account</button></div>`).join("") : `<p class="muted">No customer accounts yet.</p>`}`;
 }
 function renderAdminSettings() {
   return `<h3 class="admin-section-title">Store & payment details</h3><form class="form-stack" id="settings-form"><label>Store name<input name="storeName" required value="${escapeHTML(state.settings.storeName)}"></label><label>Store currency<select name="currency">${["NGN", "USD", "GBP", "EUR", "CAD", "AUD", "KES", "GHS", "INR"].map(currency => `<option${state.settings.currency === currency ? " selected" : ""}>${currency}</option>`).join("")}</select></label><h3 class="admin-section-title">Delivery pricing (NGN)</h3><p class="form-hint">Nigeria quotes use estimated road distance from Abeokuta: base fee plus rate per estimated kilometre, rounded up to the nearest ₦500. International delivery is a flat estimate.</p><label>Nigeria base delivery fee<input name="domesticDeliveryBaseFee" type="number" min="0" max="10000000" step="500" required value="${escapeHTML(state.settings.domesticDeliveryBaseFee)}"></label><label>Nigeria fee per estimated km<input name="domesticDeliveryPerKmFee" type="number" min="0" max="10000000" step="1" required value="${escapeHTML(state.settings.domesticDeliveryPerKmFee)}"></label><label>International flat fee<input name="internationalDeliveryFee" type="number" min="0" max="10000000" step="500" required value="${escapeHTML(state.settings.internationalDeliveryFee)}"></label><label>Free Nigerian delivery from<input name="freeShippingThreshold" type="number" min="0" max="10000000" step="1" required value="${escapeHTML(state.settings.freeShippingThreshold)}"></label><label>Bank name<input name="bankName" value="${escapeHTML(state.settings.bankName)}" placeholder="Your bank"></label><label>Account name<input name="accountName" value="${escapeHTML(state.settings.accountName)}" placeholder="Name on the account"></label><label>Account number<input name="accountNumber" value="${escapeHTML(state.settings.accountNumber)}" placeholder="Account number"></label><label>Additional payment instructions<textarea name="instructions" placeholder="Include a payment reference, transfer deadline, etc.">${escapeHTML(state.settings.instructions)}</textarea></label><button class="full-button">Save store details</button></form><p class="form-switch">Bank details are shown only to the customer after an order is placed.</p>`;
@@ -478,6 +484,15 @@ document.addEventListener("click", async event => {
       renderProducts();
       renderAdmin();
     } catch (error) { showToast(error.message); }
+    }
+  } else if (target.matches("[data-customer-delete]")) {
+    const customer = state.adminCustomers.find(item => item.id === target.dataset.customerDelete);
+    if (customer && confirm(`Delete the account for ${customer.name} (${customer.email})?\n\nTheir saved cart, newsletter subscription, and personal details on past orders will be removed. Order items, totals, and statuses will be kept. This cannot be undone.`)) {
+      try {
+        await api(`/api/admin/customers/${encodeURIComponent(customer.id)}`, { method: "DELETE" });
+        await renderAdmin();
+        showToast("Customer account deleted. Order records were retained.");
+      } catch (error) { showToast(error.message); }
     }
   } else if (target.matches("#view-all")) {
     state.category = "All";

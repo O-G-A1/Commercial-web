@@ -52,6 +52,7 @@ Use a separate Supabase project for Vercel Preview deployments if you want to ke
 
 - Customer and owner passwords are scrypt-hashed; sessions are persisted in Postgres and use HTTP-only, same-site cookies. State-changing requests require a CSRF token.
 - Product and image administration is owner-only. The `/owner.html` URL is a convenient entry point, not an access-control mechanism; all admin APIs require an authenticated owner account. Public storefront responses never include bank account details.
+- The owner dashboard includes a Customers tab. Deleting a customer removes their account, saved cart, newsletter subscription, and active sessions, and clears their name, email, phone, and address from past orders. Historical order items, totals, and statuses remain available to the owner.
 - Order totals are recalculated by the server from current database prices. Orders and line items are committed in one transaction.
 - Store payment remains manual bank transfer: the app does not verify transfers, charge cards, send email, or calculate taxes.
 - Back up the Supabase database and configure its production security/backup settings. Product photos are stored separately in Supabase Storage.

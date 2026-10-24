@@ -122,6 +122,9 @@ async function initialize() {
     "ALTER TABLE public.order_items ADD COLUMN IF NOT EXISTS custom_description text NOT NULL DEFAULT ''",
   );
   await pool.query(
+    "ALTER TABLE public.orders ALTER COLUMN user_id DROP NOT NULL",
+  );
+  await pool.query(
     "INSERT INTO public.settings (id,currency,shipping_fee,free_shipping_threshold) VALUES (1,'NGN',3500,100000) ON CONFLICT (id) DO NOTHING",
   );
   await pool.query(
@@ -490,6 +493,62 @@ app.get("/api/admin/orders", requireAuth, requireAdmin, adminLimiter, async (_re
     const { rows } = await pool.query("SELECT * FROM public.orders ORDER BY created_at DESC");
     res.json({ orders: await Promise.all(rows.map(row => orderFromRow(row))) });
   } catch (error) { next(error); }
+});
+app.get("/api/admin/customers", requireAuth, requireAdmin, adminLimiter, async (_req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT u.id, u.name, u.email, u.created_at AS "createdAt", COUNT(o.id)::int AS "orderCount"
+       FROM public.users u
+       LEFT JOIN public.orders o ON o.user_id = u.id
+       WHERE u.role = 'customer'
+       GROUP BY u.id
+       ORDER BY u.created_at DESC`,
+    );
+    res.json({ customers: rows });
+  } catch (error) { next(error); }
+});
+app.delete("/api/admin/customers/:id", requireAuth, requireAdmin, adminLimiter, requireCsrf, async (req, res, next) => {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.id)) {
+    return res.status(400).json({ error: "Choose a valid customer account." });
+  }
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+    const { rows } = await client.query(
+      "SELECT id, email, role FROM public.users WHERE id = $1 FOR UPDATE",
+      [req.params.id],
+    );
+    if (!rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Customer account not found." });
+    }
+    if (rows[0].role !== "customer") {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ error: "Owner accounts cannot be deleted here." });
+    }
+    await client.query(
+      `UPDATE public.orders
+       SET user_id = NULL, customer_name = 'Deleted customer', customer_email = '',
+           phone = '', address = 'Customer details removed'
+       WHERE user_id = $1`,
+      [req.params.id],
+    );
+    await client.query("DELETE FROM public.cart_items WHERE user_id = $1", [req.params.id]);
+    await client.query("DELETE FROM public.subscribers WHERE email = $1", [rows[0].email]);
+    await client.query(
+      "DELETE FROM public.user_sessions WHERE sess->'user'->>'id' = $1",
+      [req.params.id],
+    );
+    await client.query("DELETE FROM public.users WHERE id = $1", [req.params.id]);
+    await client.query("COMMIT");
+    res.status(204).end();
+  } catch (error) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client?.release();
+  }
 });
 app.get("/api/admin/settings", requireAuth, requireAdmin, adminLimiter, async (_req, res, next) => {
   try {

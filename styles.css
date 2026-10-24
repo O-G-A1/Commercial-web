@@ -34,8 +34,15 @@
 .wordmark span{-webkit-text-fill-color:#b38b4e;color:#b38b4e}
 .hero-copy>.button{justify-content:center;gap:18px;line-height:1;white-space:nowrap}
 .hero-copy>.button span{display:inline-flex;align-items:center;justify-content:center;line-height:1}
+.admin-customer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+.admin-customer-details{min-width:0;display:grid;gap:5px}
+.admin-customer-details strong{font-size:11px;overflow-wrap:anywhere}
+.admin-customer-details span,.admin-customer-details small{font-size:9px;color:var(--muted);overflow-wrap:anywhere}
+.admin-customer-delete{flex:none;border:1px solid #e3c9cd;border-radius:2px;background:#fff9f9;color:#8a3d4f;padding:8px 10px;font-size:9px}
+.admin-customer-delete:hover{background:#8a3d4f;color:#fff}
 @media(min-width:851px){
   .hero{grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:clamp(24px,3vw,40px)}
   .hero-copy{padding-left:clamp(0px,3vw,38px)}
   .hero h1{font-size:clamp(42px,3.7vw,56px);line-height:1.08;letter-spacing:-2px}
 }
+@media(max-width:400px){.admin-tabs{gap:12px}.admin-tab{font-size:9px}.admin-customer{align-items:flex-start}.admin-customer-delete{padding:7px}}

@@ -41,7 +41,7 @@ create table if not exists public.settings (
 create table if not exists public.orders (
   id uuid primary key,
   reference text not null unique,
-  user_id uuid not null references public.users(id),
+  user_id uuid references public.users(id) on delete set null,
   customer_name text not null,
   customer_email text not null,
   phone text not null,
