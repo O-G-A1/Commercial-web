@@ -29,3 +29,13 @@
 .hero-slide-dot{width:7px;height:7px;padding:0;border:1px solid #fff;border-radius:50%;background:#ffffff75;transition:width .2s ease,background-color .2s ease}
 .hero-slide-dot.is-active{width:20px;border-radius:5px;background:#fff}
 @media(prefers-reduced-motion:reduce){.hero-slide{transition:none}}
+
+.wordmark,.site-footer>.wordmark{color:#563b75;letter-spacing:-1.3px}
+.wordmark span{-webkit-text-fill-color:#b38b4e;color:#b38b4e}
+.hero-copy>.button{justify-content:center;gap:18px;line-height:1;white-space:nowrap}
+.hero-copy>.button span{display:inline-flex;align-items:center;justify-content:center;line-height:1}
+@media(min-width:851px){
+  .hero{grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:clamp(24px,3vw,40px)}
+  .hero-copy{padding-left:clamp(0px,3vw,38px)}
+  .hero h1{font-size:clamp(42px,3.7vw,56px);line-height:1.08;letter-spacing:-2px}
+}
