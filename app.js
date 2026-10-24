@@ -202,7 +202,7 @@ async function openAccount() {
     showToast(error.message);
     return;
   }
-  drawerContent.innerHTML = `<div class="account-card"><strong>${escapeHTML(state.currentUser.name)}</strong><span>${escapeHTML(state.currentUser.email)}</span></div><h3 class="admin-section-title">Your orders</h3>${orders.length ? orders.map(orderCard).join("") : `<p class="muted">Your orders will appear here once you place one.</p>`}<button class="full-button" data-action="signout">Sign out</button>`;
+  drawerContent.innerHTML = `<div class="account-card"><strong>${escapeHTML(state.currentUser.name)}</strong><span>${escapeHTML(state.currentUser.email)}</span></div>${state.currentUser.isAdmin ? `<button class="full-button" data-action="owner-settings">Store settings</button>` : ""}<h3 class="admin-section-title">Your orders</h3>${orders.length ? orders.map(orderCard).join("") : `<p class="muted">Your orders will appear here once you place one.</p>`}<button class="full-button" data-action="signout">Sign out</button>`;
 }
 function renderSignIn() {
   openDrawer("Welcome back");
@@ -438,6 +438,7 @@ document.addEventListener("click", async event => {
   } else if (target.dataset.action === "continue-shopping" || target.dataset.action === "done") closeDrawer();
   else if (target.dataset.action === "checkout") beginCheckout();
   else if (target.dataset.action === "back-to-cart") renderCart();
+  else if (target.dataset.action === "owner-settings") openAdmin("settings");
   else if (target.dataset.action === "signout") {
     try {
       await api("/api/auth/logout", { method: "POST", body: {} });
