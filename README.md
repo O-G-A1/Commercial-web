@@ -17,8 +17,15 @@ Responsive Nigeria-focused storefront for hand-beaded bags, clutches, jewellery,
    - `SUPABASE_STORAGE_BUCKET`: `product-images` (default).
    - `ADMIN_EMAIL`: owner login.
    - `ADMIN_PASSWORD`: a unique password of at least 12 characters.
+   - `MIGRATE_ADMIN_CREDENTIALS`: normally `false`; set to `true` only for the one-time owner email/password migration described below, then set it back to `false`.
 
 The first server initialization creates the public `product-images` bucket if needed, adds NGN store settings (₦3,500 shipping and free shipping from ₦100,000), seeds beaded-product examples when missing, and creates the owner account if its email is not already present. On startup, the app replaces only unchanged built-in sample products with the beaded examples. It changes the legacy USD/default shipping settings only when those settings still match their untouched starter values; custom products, owner-edited products, bank details, and orders are preserved. Example catalog prices and stock photos are placeholders—replace them with your actual prices and product photos in the owner dashboard.
+
+### Changing the owner login
+
+To change the existing owner's email and password, set `ADMIN_EMAIL` to the new email and `ADMIN_PASSWORD` to a new unique password of at least 12 characters. Do not send or commit the password. Temporarily set `MIGRATE_ADMIN_CREDENTIALS=true`, then start the app once locally or deploy once so initialization updates the existing single owner account. After the migration succeeds, immediately remove that variable or set it to `false` in the same environment and restart/redeploy. The migration refuses to proceed if the new email belongs to a customer or if multiple owner accounts exist. `ADMIN_PASSWORD` alone does not change an existing password; the one-time flag is required.
+
+If local `.env` and Vercel point to the same Supabase project, running the local migration updates the shared database and production login immediately. Choose one environment to perform the migration, and update the other environment's variables without running the migration there. Existing signed-in sessions may remain valid until they expire or are logged out.
 
 ## Run locally
 

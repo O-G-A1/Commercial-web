@@ -22,6 +22,7 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const imageBucket = process.env.SUPABASE_STORAGE_BUCKET || "product-images";
 const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
 const adminPassword = process.env.ADMIN_PASSWORD || "";
+const migrateAdminCredentials = process.env.MIGRATE_ADMIN_CREDENTIALS === "true";
 const missingConfig = [];
 if (sessionSecret.length < 32 || sessionSecret.startsWith("replace-with-")) missingConfig.push("SESSION_SECRET (new random value, at least 32 characters)");
 if (!databaseUrl) missingConfig.push("SUPABASE_DB_URL (Supabase transaction-pooler connection string)");
@@ -122,16 +123,49 @@ async function initialize() {
       product,
     );
   }
-  const existing = await pool.query("SELECT id, role FROM public.users WHERE email = $1", [adminEmail]);
-  if (existing.rowCount && existing.rows[0].role !== "admin") {
-    throw new Error("ADMIN_EMAIL already belongs to a customer account. Configure a separate owner email.");
-  }
-  if (!existing.rowCount) {
-    await pool.query(
-      "INSERT INTO public.users (id,name,email,password_hash,role) VALUES ($1,$2,$3,$4,'admin')",
-      [crypto.randomUUID(), "Store owner", adminEmail, await hashPassword(adminPassword)],
+  const credentialClient = await pool.connect();
+  try {
+    await credentialClient.query("BEGIN");
+    const { rows: targetRows } = await credentialClient.query(
+      "SELECT id, role FROM public.users WHERE email = $1 FOR UPDATE",
+      [adminEmail],
     );
-    console.info(`Owner account initialized for ${adminEmail}.`);
+    if (targetRows.length && targetRows[0].role !== "admin") {
+      throw new Error("ADMIN_EMAIL already belongs to a customer account. Configure a separate owner email.");
+    }
+    const { rows: admins } = await credentialClient.query(
+      "SELECT id FROM public.users WHERE role = 'admin' FOR UPDATE",
+    );
+    if (admins.length > 1) {
+      throw new Error("Multiple owner accounts exist. Resolve them before migrating owner credentials.");
+    }
+    if (migrateAdminCredentials && admins.length === 1) {
+      await credentialClient.query(
+        "UPDATE public.users SET email = $1, password_hash = $2 WHERE id = $3",
+        [adminEmail, await hashPassword(adminPassword), admins[0].id],
+      );
+      console.info("Owner login credentials migrated.");
+    } else if (migrateAdminCredentials && admins.length === 0) {
+      await credentialClient.query(
+        "INSERT INTO public.users (id,name,email,password_hash,role) VALUES ($1,$2,$3,$4,'admin')",
+        [crypto.randomUUID(), "Store owner", adminEmail, await hashPassword(adminPassword)],
+      );
+      console.info("Owner account initialized.");
+    } else if (!targetRows.length && admins.length) {
+      throw new Error("ADMIN_EMAIL differs from the existing owner account. Set MIGRATE_ADMIN_CREDENTIALS=true for a one-time credential change.");
+    } else if (!targetRows.length) {
+      await credentialClient.query(
+        "INSERT INTO public.users (id,name,email,password_hash,role) VALUES ($1,$2,$3,$4,'admin')",
+        [crypto.randomUUID(), "Store owner", adminEmail, await hashPassword(adminPassword)],
+      );
+      console.info("Owner account initialized.");
+    }
+    await credentialClient.query("COMMIT");
+  } catch (error) {
+    await credentialClient.query("ROLLBACK");
+    throw error;
+  } finally {
+    credentialClient.release();
   }
   const { data: bucket, error: bucketError } = await supabase.storage.getBucket(imageBucket);
   if (bucketError && !/not found|does not exist/i.test(bucketError.message)) throw bucketError;
