@@ -32,6 +32,23 @@ if (!adminEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) missingConfig
 if (adminPassword.length < 12 || adminPassword.startsWith("replace-with-")) missingConfig.push("ADMIN_PASSWORD (unique password, at least 12 characters)");
 if (missingConfig.length) throw new Error(`Missing or invalid configuration: ${missingConfig.join(", ")}.`);
 
+const deliveryLocations = [
+  ["Abia", 5.532, 7.486], ["Adamawa", 9.2035, 12.4954], ["Akwa Ibom", 5.0377, 7.9128],
+  ["Anambra", 6.2104, 7.0723], ["Bauchi", 10.3158, 9.8442], ["Bayelsa", 4.9267, 6.2676],
+  ["Benue", 7.7322, 8.5391], ["Borno", 11.8333, 13.15], ["Cross River", 4.9757, 8.3417],
+  ["Delta", 6.198, 6.7319], ["Ebonyi", 6.3249, 8.1137], ["Edo", 6.335, 5.6037],
+  ["Ekiti", 7.6233, 5.22], ["Enugu", 6.4584, 7.5464], ["Gombe", 10.2897, 11.1673],
+  ["Imo", 5.484, 7.035], ["Jigawa", 11.7562, 9.338], ["Kaduna", 10.5105, 7.4165],
+  ["Kano", 12.0022, 8.5919], ["Katsina", 12.9908, 7.6177], ["Kebbi", 12.4539, 4.1975],
+  ["Kogi", 7.8023, 6.7333], ["Kwara", 8.4966, 4.5421], ["Lagos", 6.6018, 3.3515],
+  ["Nasarawa", 8.4912, 8.5167], ["Niger", 9.6139, 6.5569], ["Ogun", 7.1475, 3.3619],
+  ["Ondo", 7.2571, 5.2058], ["Osun", 7.7827, 4.5418], ["Oyo", 7.3775, 3.947],
+  ["Plateau", 9.8965, 8.8583], ["Rivers", 4.8156, 7.0498], ["Sokoto", 13.0059, 5.2476],
+  ["Taraba", 8.8937, 11.3596], ["Yobe", 11.748, 11.966], ["Zamfara", 12.1628, 6.6614],
+  ["Federal Capital Territory", 9.0765, 7.3986],
+].map(([name, latitude, longitude]) => ({ name, latitude, longitude }));
+const deliveryLocationByName = new Map(deliveryLocations.map(location => [location.name.toLowerCase(), location]));
+
 const pool = new Pool({
   connectionString: databaseUrl,
   max: Number(process.env.PG_POOL_MAX) || 5,
@@ -95,6 +112,12 @@ async function verifyPassword(password, storedHash) {
 }
 
 async function initialize() {
+  await pool.query(
+    `ALTER TABLE public.settings
+     ADD COLUMN IF NOT EXISTS domestic_delivery_base_fee numeric(12,2) NOT NULL DEFAULT 2500,
+     ADD COLUMN IF NOT EXISTS domestic_delivery_per_km_fee numeric(12,2) NOT NULL DEFAULT 15,
+     ADD COLUMN IF NOT EXISTS international_delivery_fee numeric(12,2) NOT NULL DEFAULT 20000`,
+  );
   await pool.query(
     "ALTER TABLE public.order_items ADD COLUMN IF NOT EXISTS custom_description text NOT NULL DEFAULT ''",
   );
@@ -284,12 +307,38 @@ function safeSettings(row, includePrivate = false) {
   const settings = {
     currency: row.currency, shippingFee: Number(row.shipping_fee),
     freeShippingThreshold: Number(row.free_shipping_threshold), storeName: row.store_name,
+    domesticDeliveryBaseFee: Number(row.domestic_delivery_base_fee),
+    domesticDeliveryPerKmFee: Number(row.domestic_delivery_per_km_fee),
+    internationalDeliveryFee: Number(row.international_delivery_fee),
+    deliveryLocations: deliveryLocations.map(({ name }) => name),
   };
   if (includePrivate) Object.assign(settings, {
     bankName: row.bank_name, accountName: row.account_name,
     accountNumber: row.account_number, instructions: row.payment_instructions,
   });
   return settings;
+}
+function calculateDeliveryQuote(countryCode, stateName, subtotal, settings) {
+  if (countryCode === "INTL") {
+    return { fee: Number(settings.international_delivery_fee), estimatedRoadKm: null, isFree: false };
+  }
+  if (countryCode !== "NG") throw Object.assign(new Error("Choose a valid delivery destination."), { status: 400 });
+  const location = deliveryLocationByName.get(String(stateName || "").toLowerCase());
+  if (!location) throw Object.assign(new Error("Choose a valid Nigerian state or territory."), { status: 400 });
+  const origin = deliveryLocationByName.get("ogun");
+  const toRadians = degrees => degrees * Math.PI / 180;
+  const latitudeDifference = toRadians(location.latitude - origin.latitude);
+  const longitudeDifference = toRadians(location.longitude - origin.longitude);
+  const haversine = Math.sin(latitudeDifference / 2) ** 2
+    + Math.cos(toRadians(origin.latitude)) * Math.cos(toRadians(location.latitude))
+    * Math.sin(longitudeDifference / 2) ** 2;
+  const straightLineKm = 6371 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+  const estimatedRoadKm = Math.ceil(straightLineKm * 1.35);
+  const calculatedFee = Math.ceil(
+    (Number(settings.domestic_delivery_base_fee) + estimatedRoadKm * Number(settings.domestic_delivery_per_km_fee)) / 500,
+  ) * 500;
+  const isFree = subtotal >= Number(settings.free_shipping_threshold);
+  return { fee: isFree ? 0 : calculatedFee, estimatedRoadKm, isFree };
 }
 function productFromRow(row) {
   return {
@@ -349,6 +398,18 @@ app.get("/api/bootstrap", async (req, res, next) => {
       products: products.map(productFromRow), settings: safeSettings(settings[0]),
       user: req.session.user ? publicUser(req.session.user) : null, csrfToken: req.session.csrfToken,
     });
+  } catch (error) { next(error); }
+});
+app.get("/api/delivery/quote", async (req, res, next) => {
+  try {
+    const countryCode = String(req.query.countryCode || "");
+    const stateName = String(req.query.state || "");
+    const subtotal = Number(req.query.subtotal);
+    if (!Number.isFinite(subtotal) || subtotal < 0 || subtotal > 100000000) {
+      return res.status(400).json({ error: "A valid order subtotal is required for delivery pricing." });
+    }
+    const { rows } = await pool.query("SELECT * FROM public.settings WHERE id = 1");
+    res.json(calculateDeliveryQuote(countryCode, stateName, subtotal, rows[0]));
   } catch (error) { next(error); }
 });
 app.post("/api/auth/register", authLimiter, requireCsrf, async (req, res, next) => {
@@ -504,21 +565,26 @@ app.put("/api/admin/settings", requireAuth, requireAdmin, adminLimiter, requireC
   try {
     const currency = String(req.body.currency || "").toUpperCase();
     const currencies = new Set(["USD", "GBP", "EUR", "CAD", "AUD", "NGN", "KES", "GHS", "INR"]);
-    const shippingFee = Number(req.body.shippingFee);
+    const domesticDeliveryBaseFee = Number(req.body.domesticDeliveryBaseFee);
+    const domesticDeliveryPerKmFee = Number(req.body.domesticDeliveryPerKmFee);
+    const internationalDeliveryFee = Number(req.body.internationalDeliveryFee);
     const freeShippingThreshold = Number(req.body.freeShippingThreshold);
     if (!currencies.has(currency)) return res.status(400).json({ error: "Choose a supported store currency." });
-    if (!Number.isFinite(shippingFee) || shippingFee < 0 || !Number.isFinite(freeShippingThreshold) || freeShippingThreshold < 0) return res.status(400).json({ error: "Shipping amounts must be zero or greater." });
+    const deliveryFees = [domesticDeliveryBaseFee, domesticDeliveryPerKmFee, internationalDeliveryFee, freeShippingThreshold];
+    if (deliveryFees.some(amount => !Number.isFinite(amount) || amount < 0 || amount > 10000000)) return res.status(400).json({ error: "Delivery amounts must be between zero and 10,000,000." });
     const storeName = validateText(req.body.storeName, "Store name", 100);
     const { rows } = await pool.query(
       `UPDATE public.settings SET currency=$1,bank_name=$2,account_name=$3,account_number=$4,
-       payment_instructions=$5,shipping_fee=$6,free_shipping_threshold=$7,store_name=$8
+       payment_instructions=$5,domestic_delivery_base_fee=$6,domestic_delivery_per_km_fee=$7,
+       international_delivery_fee=$8,free_shipping_threshold=$9,store_name=$10
        WHERE id=1 RETURNING *`,
       [
         currency, String(req.body.bankName || "").trim().slice(0, 120),
         String(req.body.accountName || "").trim().slice(0, 120),
         String(req.body.accountNumber || "").trim().slice(0, 80),
         String(req.body.instructions || "").trim().slice(0, 1000),
-        shippingFee, freeShippingThreshold, storeName,
+        domesticDeliveryBaseFee, domesticDeliveryPerKmFee, internationalDeliveryFee,
+        freeShippingThreshold, storeName,
       ],
     );
     res.json({ settings: safeSettings(rows[0], true) });
@@ -538,8 +604,26 @@ app.post("/api/orders", checkoutLimiter, requireAuth, requireCsrf, async (req, r
   let client;
   try {
     const name = validateText(req.body.name, "Name", 120);
-    const address = validateText(req.body.address, "Delivery address", 500);
+    const streetAddress = validateText(req.body.address, "Delivery address", 500);
     const phone = validateText(req.body.phone, "Phone number", 40);
+    const countryCode = String(req.body.countryCode || "");
+    let countryName;
+    let stateName = "";
+    if (countryCode === "NG") {
+      stateName = validateText(req.body.state, "State", 80);
+      if (!deliveryLocationByName.has(stateName.toLowerCase())) {
+        return res.status(400).json({ error: "Choose a valid Nigerian state or territory." });
+      }
+      countryName = "Nigeria";
+    } else if (countryCode === "INTL") {
+      countryName = validateText(req.body.country, "Country", 100);
+      if (countryName.toLowerCase() === "nigeria") {
+        return res.status(400).json({ error: "Choose Nigeria to receive a Nigerian delivery quote." });
+      }
+    } else {
+      return res.status(400).json({ error: "Choose Nigeria or outside Nigeria as your delivery destination." });
+    }
+    const address = [streetAddress, stateName, countryName].filter(Boolean).join(", ");
     const requestedItems = req.body.items;
     if (!Array.isArray(requestedItems) || requestedItems.length < 1 || requestedItems.length > 50) return res.status(400).json({ error: "Your bag must have between 1 and 50 products." });
     const quantities = new Map();
@@ -566,7 +650,7 @@ app.post("/api/orders", checkoutLimiter, requireAuth, requireCsrf, async (req, r
     const subtotal = Math.round(products.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) * 100) / 100;
     const { rows: settingsRows } = await client.query("SELECT * FROM public.settings WHERE id=1");
     const settings = settingsRows[0];
-    const shipping = subtotal >= Number(settings.free_shipping_threshold) ? 0 : Number(settings.shipping_fee);
+    const { fee: shipping } = calculateDeliveryQuote(countryCode, stateName, subtotal, settings);
     const total = Math.round((subtotal + shipping) * 100) / 100;
     const orderId = crypto.randomUUID();
     const reference = `FM-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;

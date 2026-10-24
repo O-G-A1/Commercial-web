@@ -10,6 +10,7 @@
 .category-pill.active{background:#49375f;color:#fff;border-color:#49375f}
 .editorial{background:#eae2f3}
 .form-stack input,.form-stack select,.form-stack textarea{border-color:#ded5eb;outline-color:#987dbb}
+.full-button:disabled{background:#b9afc4;cursor:not-allowed}
 .notice{background:#eee9f7;color:#55466b}
 .account-card{background:#f2edf8}
 .status-tag{color:#55466b!important;background:#eee9f7}

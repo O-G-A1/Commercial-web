@@ -183,10 +183,9 @@ function renderCart() {
     return;
   }
   const subtotal = items.reduce((sum, item) => sum + effectivePrice(item.product) * item.quantity, 0);
-  const shipping = subtotal >= state.settings.freeShippingThreshold ? 0 : state.settings.shippingFee;
   drawerContent.innerHTML = `${items.map(({ product, quantity }) => `
     <div class="cart-row"><img src="${escapeHTML(product.image)}" alt=""><div><h3>${escapeHTML(product.name)}</h3><div class="price-line">${displayPrice(product)}</div><div class="quantity"><button data-quantity="-1" data-id="${escapeHTML(product.id)}" aria-label="Decrease quantity">−</button><span>${quantity}</span><button data-quantity="1" data-id="${escapeHTML(product.id)}" aria-label="Increase quantity">+</button></div></div><button class="remove-item" data-remove="${escapeHTML(product.id)}">Remove</button></div>`).join("")}
-    <div class="cart-summary"><div class="summary-line"><span>Subtotal</span><span>${money(subtotal)}</span></div><div class="summary-line"><span>Shipping</span><span>${shipping ? money(shipping) : "Complimentary"}</span></div><div class="summary-line total"><span>Estimated total</span><span>${money(subtotal + shipping)}</span></div><p class="muted">Taxes, if applicable, are not included in the order total.</p><button class="full-button" data-action="checkout">Continue to checkout</button></div>`;
+    <div class="cart-summary"><div class="summary-line"><span>Subtotal</span><span>${money(subtotal)}</span></div><div class="summary-line"><span>Delivery</span><span>Calculated at checkout</span></div><p class="muted">Choose a delivery destination at checkout for an estimated fee. Nigerian delivery is free from ${money(state.settings.freeShippingThreshold)}.</p><button class="full-button" data-action="checkout">Continue to checkout</button></div>`;
 }
 function openCart() {
   openDrawer("Your bag");
@@ -223,9 +222,51 @@ function beginCheckout() {
 function renderCheckout() {
   const items = cartProducts();
   const subtotal = items.reduce((sum, item) => sum + effectivePrice(item.product) * item.quantity, 0);
-  const shipping = subtotal >= state.settings.freeShippingThreshold ? 0 : state.settings.shippingFee;
   openDrawer("Delivery & payment");
-  drawerContent.innerHTML = `<div class="notice">Payment is by manual bank transfer. Your order will be marked <strong>awaiting payment</strong> until you confirm the transfer.</div><form class="form-stack" id="checkout-form"><label>Full name<input name="name" required value="${escapeHTML(state.currentUser.name)}" autocomplete="name"></label><label>Delivery address<textarea name="address" required autocomplete="street-address" placeholder="Street, area, city, state"></textarea></label><label>Phone number<input name="phone" required autocomplete="tel" placeholder="+234 800 000 0000"></label><h3 class="admin-section-title">Product requests</h3><p class="muted">Tell us any colours, design details, or other customizations you want for each item. This is optional.</p>${items.map(({ product, quantity }) => `<label>${escapeHTML(product.name)} × ${quantity}<textarea name="customDescription_${escapeHTML(product.id)}" maxlength="500" placeholder="Describe the colours, design, or details you would like"></textarea></label>`).join("")}<div class="cart-summary"><div class="summary-line"><span>${items.reduce((sum, item) => sum + item.quantity, 0)} items · Subtotal</span><span>${money(subtotal)}</span></div><div class="summary-line"><span>Shipping</span><span>${shipping ? money(shipping) : "Complimentary"}</span></div><div class="summary-line total"><span>Order total</span><span>${money(subtotal + shipping)}</span></div></div><button class="full-button">Place order</button></form><p class="form-switch"><button class="link-button" data-action="back-to-cart">Return to bag</button></p>`;
+  drawerContent.innerHTML = `<div class="notice">Payment is by manual bank transfer. Your order will be marked <strong>awaiting payment</strong> until you confirm the transfer.</div><form class="form-stack" id="checkout-form"><label>Full name<input name="name" required value="${escapeHTML(state.currentUser.name)}" autocomplete="name"></label><label>Delivery destination<select name="countryCode" id="delivery-country" required><option value="">Choose a destination</option><option value="NG">Nigeria</option><option value="INTL">Outside Nigeria</option></select></label><div id="nigeria-location" hidden><label>State or territory<select name="state" id="delivery-state" required><option value="">Choose your state</option>${(state.settings.deliveryLocations || []).map(location => `<option value="${escapeHTML(location)}">${escapeHTML(location)}</option>`).join("")}</select></label></div><div id="international-location" hidden><label>Country<input name="country" id="delivery-country-name" maxlength="100" autocomplete="country-name" placeholder="Enter destination country" disabled></label><p class="form-hint">International delivery uses a flat estimate. Customs charges, if any, are not included.</p></div><label>Street address and city<textarea name="address" required autocomplete="street-address" placeholder="Street, area, city or town"></textarea></label><label>Phone number<input name="phone" required autocomplete="tel" placeholder="+234 800 000 0000"></label><h3 class="admin-section-title">Product requests</h3><p class="muted">Tell us any colours, design details, or other customizations you want for each item. This is optional.</p>${items.map(({ product, quantity }) => `<label>${escapeHTML(product.name)} × ${quantity}<textarea name="customDescription_${escapeHTML(product.id)}" maxlength="500" placeholder="Describe the colours, design, or details you would like"></textarea></label>`).join("")}<div class="cart-summary"><div class="summary-line"><span>${items.reduce((sum, item) => sum + item.quantity, 0)} items · Subtotal</span><span>${money(subtotal)}</span></div><div class="summary-line"><span>Delivery</span><span id="delivery-fee">Choose a destination</span></div><p class="form-hint" id="delivery-estimate"></p><div class="summary-line total"><span>Order total</span><span id="order-total">${money(subtotal)}</span></div></div><button class="full-button" disabled>Place order</button></form><p class="form-switch"><button class="link-button" data-action="back-to-cart">Return to bag</button></p>`;
+}
+let quoteRequestId = 0;
+async function refreshDeliveryQuote(form) {
+  const requestId = ++quoteRequestId;
+  const destination = $('select[name="countryCode"]', form).value;
+  const stateName = $('select[name="state"]', form).value;
+  const country = $('input[name="country"]', form).value.trim();
+  const feeDisplay = $("#delivery-fee", form);
+  const estimateDisplay = $("#delivery-estimate", form);
+  const totalDisplay = $("#order-total", form);
+  const submitButton = $(".full-button", form);
+  const subtotal = cartProducts().reduce((sum, item) => sum + effectivePrice(item.product) * item.quantity, 0);
+  const thresholdFree = destination === "NG" && subtotal >= state.settings.freeShippingThreshold;
+  if (!destination || (destination === "NG" && !stateName) || (destination === "INTL" && !country)) {
+    feeDisplay.textContent = "Choose a destination";
+    estimateDisplay.textContent = "";
+    totalDisplay.textContent = money(subtotal);
+    submitButton.disabled = true;
+    return;
+  }
+  feeDisplay.textContent = "Calculating…";
+  estimateDisplay.textContent = "";
+  submitButton.disabled = true;
+  try {
+    const params = new URLSearchParams({
+      countryCode: destination,
+      state: stateName,
+      subtotal: String(subtotal),
+    });
+    const quote = await api(`/api/delivery/quote?${params}`);
+    if (requestId !== quoteRequestId) return;
+    feeDisplay.textContent = quote.fee ? money(quote.fee) : "Complimentary";
+    totalDisplay.textContent = money(subtotal + quote.fee);
+    estimateDisplay.textContent = destination === "NG"
+      ? `${thresholdFree ? "Free Nigerian delivery applies. " : ""}Reference distance from Abeokuta to the state capital: about ${quote.estimatedRoadKm} km. Final courier route may vary.`
+      : "Flat international delivery estimate; customs charges, if any, are not included.";
+    submitButton.disabled = false;
+  } catch (error) {
+    if (requestId !== quoteRequestId) return;
+    feeDisplay.textContent = "Unavailable";
+    estimateDisplay.textContent = error.message;
+    totalDisplay.textContent = money(subtotal);
+  }
 }
 async function completeOrder(values) {
   const { order, bankDetails } = await api("/api/orders", {
@@ -234,6 +275,9 @@ async function completeOrder(values) {
       name: values.name.trim(),
       address: values.address.trim(),
       phone: values.phone.trim(),
+      countryCode: values.countryCode,
+      state: values.state,
+      country: values.country,
       items: state.cart.map(item => ({
         productId: item.productId,
         quantity: item.quantity,
@@ -247,7 +291,7 @@ async function completeOrder(values) {
 }
 function renderPaymentInstructions(order, bankDetails) {
   openDrawer("Order received");
-  drawerContent.innerHTML = `<div class="notice">Thanks, ${escapeHTML(order.customerName)}. Your order <strong>${escapeHTML(order.reference)}</strong> is reserved while we wait for your transfer.</div><h3 class="admin-section-title">Bank transfer details</h3>${bankDetails ? `<div class="account-card"><span>Bank</span><strong>${escapeHTML(bankDetails.bankName)}</strong><span>Account name</span><strong>${escapeHTML(bankDetails.accountName)}</strong><span>Account number</span><strong>${escapeHTML(bankDetails.accountNumber)}</strong>${bankDetails.instructions ? `<span>Payment note</span><strong>${escapeHTML(bankDetails.instructions)}</strong>` : ""}</div><p class="muted">Use <strong>${escapeHTML(order.reference)}</strong> as your transfer reference. The store owner will confirm your order after the payment is received.</p>` : `<div class="admin-notice">The store owner has not added bank details yet. Your order is saved, but please contact the store owner to arrange payment.</div>`}<div class="order-card"><h3>Order total</h3><p>${formatCurrency(order.total, order.currency)} · ${order.items.reduce((sum, item) => sum + item.quantity, 0)} items</p><p>Delivering to: ${escapeHTML(order.address)}</p></div><button class="full-button" data-action="done">Continue shopping</button>`;
+  drawerContent.innerHTML = `<div class="notice">Thanks, ${escapeHTML(order.customerName)}. Your order <strong>${escapeHTML(order.reference)}</strong> is reserved while we wait for your transfer.</div><h3 class="admin-section-title">Bank transfer details</h3>${bankDetails ? `<div class="account-card"><span>Bank</span><strong>${escapeHTML(bankDetails.bankName)}</strong><span>Account name</span><strong>${escapeHTML(bankDetails.accountName)}</strong><span>Account number</span><strong>${escapeHTML(bankDetails.accountNumber)}</strong>${bankDetails.instructions ? `<span>Payment note</span><strong>${escapeHTML(bankDetails.instructions)}</strong>` : ""}</div><p class="muted">Use <strong>${escapeHTML(order.reference)}</strong> as your transfer reference. The store owner will confirm your order after the payment is received.</p>` : `<div class="admin-notice">The store owner has not added bank details yet. Your order is saved, but please contact the store owner to arrange payment.</div>`}<div class="order-card"><h3>Order total</h3><p>Items: ${formatCurrency(order.subtotal, order.currency)}</p><p>Delivery: ${formatCurrency(order.shipping, order.currency)}</p><p><strong>Total: ${formatCurrency(order.total, order.currency)}</strong> · ${order.items.reduce((sum, item) => sum + item.quantity, 0)} items</p><p>Delivering to: ${escapeHTML(order.address)}</p></div><button class="full-button" data-action="done">Continue shopping</button>`;
 }
 function openAdmin(tab = "products") {
   if (!state.currentUser?.isAdmin) {
@@ -286,10 +330,10 @@ function parsePrice(value) {
 }
 function renderAdminOrders() {
   const orders = state.adminOrders || [];
-  return `<h3 class="admin-section-title">Customer orders (${orders.length})</h3>${orders.length ? orders.map(order => `<div class="admin-order"><div class="admin-order-top"><span>${escapeHTML(order.reference)}</span><span>${formatCurrency(order.total, order.currency)}</span></div><p>${escapeHTML(order.customerName)} · ${escapeHTML(order.customerEmail)}</p>${order.items.map(item => `<p>${escapeHTML(item.name)} × ${item.quantity}${item.customDescription ? `<br><strong>Customer request:</strong> ${escapeHTML(item.customDescription)}` : ""}</p>`).join("")}<p>${escapeHTML(order.address)}</p><span class="status-tag">${escapeHTML(order.status)}</span><label class="form-label">Update status<select class="status-select" data-order-status="${escapeHTML(order.reference)}"><option${order.status === "Awaiting payment" ? " selected" : ""}>Awaiting payment</option><option${order.status === "Payment received" ? " selected" : ""}>Payment received</option><option${order.status === "Processing" ? " selected" : ""}>Processing</option><option${order.status === "Shipped" ? " selected" : ""}>Shipped</option><option${order.status === "Completed" ? " selected" : ""}>Completed</option><option${order.status === "Cancelled" ? " selected" : ""}>Cancelled</option></select></label></div>`).join("") : `<p class="muted">Orders placed by customers will appear here.</p>`}`;
+  return `<h3 class="admin-section-title">Customer orders (${orders.length})</h3>${orders.length ? orders.map(order => `<div class="admin-order"><div class="admin-order-top"><span>${escapeHTML(order.reference)}</span><span>${formatCurrency(order.total, order.currency)}</span></div><p>${escapeHTML(order.customerName)} · ${escapeHTML(order.customerEmail)}</p><p>Subtotal ${formatCurrency(order.subtotal, order.currency)} · Delivery ${formatCurrency(order.shipping, order.currency)}</p>${order.items.map(item => `<p>${escapeHTML(item.name)} × ${item.quantity}${item.customDescription ? `<br><strong>Customer request:</strong> ${escapeHTML(item.customDescription)}` : ""}</p>`).join("")}<p>${escapeHTML(order.address)}</p><span class="status-tag">${escapeHTML(order.status)}</span><label class="form-label">Update status<select class="status-select" data-order-status="${escapeHTML(order.reference)}"><option${order.status === "Awaiting payment" ? " selected" : ""}>Awaiting payment</option><option${order.status === "Payment received" ? " selected" : ""}>Payment received</option><option${order.status === "Processing" ? " selected" : ""}>Processing</option><option${order.status === "Shipped" ? " selected" : ""}>Shipped</option><option${order.status === "Completed" ? " selected" : ""}>Completed</option><option${order.status === "Cancelled" ? " selected" : ""}>Cancelled</option></select></label></div>`).join("") : `<p class="muted">Orders placed by customers will appear here.</p>`}`;
 }
 function renderAdminSettings() {
-  return `<h3 class="admin-section-title">Store & payment details</h3><form class="form-stack" id="settings-form"><label>Store name<input name="storeName" required value="${escapeHTML(state.settings.storeName)}"></label><label>Store currency<select name="currency">${["NGN", "USD", "GBP", "EUR", "CAD", "AUD", "KES", "GHS", "INR"].map(currency => `<option${state.settings.currency === currency ? " selected" : ""}>${currency}</option>`).join("")}</select></label><label>Shipping fee<input name="shippingFee" type="number" min="0" step="1" required value="${escapeHTML(state.settings.shippingFee)}"></label><label>Free shipping from<input name="freeShippingThreshold" type="number" min="0" step="1" required value="${escapeHTML(state.settings.freeShippingThreshold)}"></label><label>Bank name<input name="bankName" value="${escapeHTML(state.settings.bankName)}" placeholder="Your bank"></label><label>Account name<input name="accountName" value="${escapeHTML(state.settings.accountName)}" placeholder="Name on the account"></label><label>Account number<input name="accountNumber" value="${escapeHTML(state.settings.accountNumber)}" placeholder="Account number"></label><label>Additional payment instructions<textarea name="instructions" placeholder="Include a payment reference, transfer deadline, etc.">${escapeHTML(state.settings.instructions)}</textarea></label><button class="full-button">Save store details</button></form><p class="form-switch">Bank details are shown only to the customer after an order is placed.</p>`;
+  return `<h3 class="admin-section-title">Store & payment details</h3><form class="form-stack" id="settings-form"><label>Store name<input name="storeName" required value="${escapeHTML(state.settings.storeName)}"></label><label>Store currency<select name="currency">${["NGN", "USD", "GBP", "EUR", "CAD", "AUD", "KES", "GHS", "INR"].map(currency => `<option${state.settings.currency === currency ? " selected" : ""}>${currency}</option>`).join("")}</select></label><h3 class="admin-section-title">Delivery pricing (NGN)</h3><p class="form-hint">Nigeria quotes use estimated road distance from Abeokuta: base fee plus rate per estimated kilometre, rounded up to the nearest ₦500. International delivery is a flat estimate.</p><label>Nigeria base delivery fee<input name="domesticDeliveryBaseFee" type="number" min="0" max="10000000" step="500" required value="${escapeHTML(state.settings.domesticDeliveryBaseFee)}"></label><label>Nigeria fee per estimated km<input name="domesticDeliveryPerKmFee" type="number" min="0" max="10000000" step="1" required value="${escapeHTML(state.settings.domesticDeliveryPerKmFee)}"></label><label>International flat fee<input name="internationalDeliveryFee" type="number" min="0" max="10000000" step="500" required value="${escapeHTML(state.settings.internationalDeliveryFee)}"></label><label>Free Nigerian delivery from<input name="freeShippingThreshold" type="number" min="0" max="10000000" step="1" required value="${escapeHTML(state.settings.freeShippingThreshold)}"></label><label>Bank name<input name="bankName" value="${escapeHTML(state.settings.bankName)}" placeholder="Your bank"></label><label>Account name<input name="accountName" value="${escapeHTML(state.settings.accountName)}" placeholder="Name on the account"></label><label>Account number<input name="accountNumber" value="${escapeHTML(state.settings.accountNumber)}" placeholder="Account number"></label><label>Additional payment instructions<textarea name="instructions" placeholder="Include a payment reference, transfer deadline, etc.">${escapeHTML(state.settings.instructions)}</textarea></label><button class="full-button">Save store details</button></form><p class="form-switch">Bank details are shown only to the customer after an order is placed.</p>`;
 }
 function formObject(form) {
   return Object.fromEntries(new FormData(form).entries());
@@ -530,6 +574,20 @@ document.addEventListener("change", async event => {
   if (event.target.id === "sort-products") {
     state.sort = event.target.value;
     renderProducts();
+  }
+  if (event.target.id === "delivery-country") {
+    const form = $("#checkout-form");
+    const isNigeria = event.target.value === "NG";
+    $("#nigeria-location", form).hidden = !isNigeria;
+    $("#delivery-state", form).disabled = !isNigeria;
+    $("#delivery-state", form).required = isNigeria;
+    $("#international-location", form).hidden = isNigeria || !event.target.value;
+    $("#delivery-country-name", form).disabled = isNigeria || !event.target.value;
+    $("#delivery-country-name", form).required = event.target.value === "INTL";
+    await refreshDeliveryQuote(form);
+  }
+  if (event.target.id === "delivery-state" || event.target.id === "delivery-country-name") {
+    await refreshDeliveryQuote($("#checkout-form"));
   }
   if (event.target.matches("[data-order-status]")) {
     try {

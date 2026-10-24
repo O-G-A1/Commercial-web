@@ -32,6 +32,9 @@ create table if not exists public.settings (
   payment_instructions text not null default '',
   shipping_fee numeric(12,2) not null default 3500 check (shipping_fee >= 0),
   free_shipping_threshold numeric(12,2) not null default 100000 check (free_shipping_threshold >= 0),
+  domestic_delivery_base_fee numeric(12,2) not null default 2500 check (domestic_delivery_base_fee >= 0),
+  domestic_delivery_per_km_fee numeric(12,2) not null default 15 check (domestic_delivery_per_km_fee >= 0),
+  international_delivery_fee numeric(12,2) not null default 20000 check (international_delivery_fee >= 0),
   store_name text not null default 'BeadsbyBambie'
 );
 
