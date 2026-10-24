@@ -302,6 +302,7 @@ api("/api/bootstrap").then(async data => {
   state.currentUser = data.user;
   state.csrfToken = data.csrfToken;
   renderProducts();
+  if (window.location.pathname === "/owner.html") openAdmin();
   if (state.currentUser) {
     try { await restoreAccountCart(); }
     catch (error) { showToast(error.message); }
@@ -327,10 +328,7 @@ document.addEventListener("click", async event => {
       $("#shop").scrollIntoView({ behavior: "smooth" });
     }
   } else if (target.matches(".close-button") || target === overlay) closeDrawer();
-  else if (target.id === "admin-open") {
-    event.preventDefault();
-    openAdmin();
-  } else if (target.matches("[data-category]")) {
+  else if (target.matches("[data-category]")) {
     state.category = target.dataset.category;
     renderProducts();
   } else if (target.matches("[data-category-link]")) {

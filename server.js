@@ -181,6 +181,7 @@ app.use(session({
     maxAge: 7 * 24 * 60 * 60 * 1000,
   },
 }));
+app.get("/owner.html", (_req, res) => res.sendFile(path.join(__dirname, "index.html")));
 if (!process.env.VERCEL) {
   app.use(express.static(__dirname, { dotfiles: "deny", index: "index.html" }));
 }
