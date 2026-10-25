@@ -46,3 +46,34 @@
   .hero h1{font-size:clamp(42px,3.7vw,56px);line-height:1.08;letter-spacing:-2px}
 }
 @media(max-width:400px){.admin-tabs{gap:12px}.admin-tab{font-size:9px}.admin-customer{align-items:flex-start}.admin-customer-delete{padding:7px}}
+.order-confirmation-page{background:#f5eff9}
+.order-confirmation-page .announcement,.order-confirmation-page .main-nav,.order-confirmation-page .header-actions,.order-confirmation-page .site-footer{display:none}
+.order-confirmation-page .site-header{justify-content:center;background:#f5eff9;border-bottom-color:#e8dff0}
+.order-confirmation-page main{min-height:calc(100vh - 76px);padding:clamp(28px,6vw,72px) 20px}
+.order-confirmation-page main>.order-confirmation[hidden]{display:none}
+.order-confirmation-page main>:not(.order-confirmation){display:none}
+.order-confirmation{max-width:700px;margin:0 auto}
+.order-confirmation-card{background:#fff;border:1px solid #ebe2ef;padding:clamp(24px,6vw,54px);box-shadow:0 16px 50px #3c28510c}
+.confirmation-mark{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:#eee6f5;color:#62467e;font-size:25px;margin-bottom:22px}
+.order-confirmation-card>.eyebrow{color:#806393;margin-bottom:11px}
+.order-confirmation-card h1{font:500 clamp(31px,5vw,44px)/1.12 var(--serif);letter-spacing:-1.2px;margin:0}
+.confirmation-intro,.confirmation-section>p{font-size:12px;line-height:1.75;color:var(--muted)}
+.confirmation-reference,.confirmation-status{display:flex;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid #eee7f1;font-size:11px}
+.confirmation-reference{margin-top:22px;border-top:1px solid #eee7f1}
+.confirmation-reference span,.confirmation-status span{color:var(--muted)}
+.confirmation-reference strong{color:#563b75;letter-spacing:.06em}
+.confirmation-status strong{font-weight:600}
+.confirmation-section{padding-top:25px}
+.confirmation-section h2{font:500 21px var(--serif);margin:0 0 14px}
+.confirmation-item{display:flex;justify-content:space-between;gap:15px;padding:12px 0;border-bottom:1px solid #f0eaf2;font-size:11px}
+.confirmation-item>div{display:grid;gap:5px}
+.confirmation-item span,.confirmation-item small{color:var(--muted);font-size:10px;line-height:1.5}
+.confirmation-item>strong{white-space:nowrap}
+.confirmation-total{display:grid;gap:10px;padding-top:15px;font-size:11px}
+.confirmation-total>div{display:flex;justify-content:space-between;gap:12px}
+.confirmation-grand-total{border-top:1px solid #e9e0ed;padding-top:13px;font-size:14px}
+.confirmation-bank{display:grid;grid-template-columns:minmax(95px,1fr) 2fr;gap:9px 14px;background:#f8f4fa;padding:16px;font-size:11px}
+.confirmation-bank span{color:var(--muted)}
+.confirmation-bank strong{overflow-wrap:anywhere}
+.confirmation-home{margin-top:28px;justify-content:center;width:100%}
+@media(max-width:480px){.order-confirmation-page .site-header{height:64px}.order-confirmation-page main{min-height:calc(100vh - 64px);padding:20px 12px}.order-confirmation-card{padding:24px 19px}.confirmation-reference,.confirmation-status{font-size:10px}}

@@ -211,6 +211,20 @@ function renderSignIn() {
 function orderCard(order) {
   return `<div class="order-card"><h3>Order ${escapeHTML(order.reference)}</h3><p>${new Date(order.createdAt).toLocaleDateString()} · ${formatCurrency(order.total, order.currency)}</p><p>Status: ${escapeHTML(order.status)}</p></div>`;
 }
+async function renderOrderConfirmationPage(reference) {
+  document.body.classList.add("order-confirmation-page");
+  const page = $("#order-confirmation");
+  page.hidden = false;
+  page.innerHTML = `<div class="order-confirmation-card"><p class="eyebrow">BEADSBYBAMBIE · ORDER CONFIRMATION</p><h1>Your order is confirmed.</h1><p class="muted">Loading your order details…</p></div>`;
+  document.title = "Order confirmation — BeadsbyBambie";
+  try {
+    if (!reference) throw new Error("No order reference was provided.");
+    const { order, bankDetails } = await api(`/api/account/orders/${encodeURIComponent(reference)}`);
+    page.innerHTML = `<div class="order-confirmation-card"><div class="confirmation-mark" aria-hidden="true">✓</div><p class="eyebrow">THANK YOU FOR YOUR ORDER</p><h1>Your order is confirmed.</h1><p class="confirmation-intro">Thank you, ${escapeHTML(order.customerName)}. We’ve received your order and saved the details below.</p><div class="confirmation-reference"><span>Order reference</span><strong>${escapeHTML(order.reference)}</strong></div><div class="confirmation-status"><span>Current status</span><strong>${escapeHTML(order.status)}</strong></div><section class="confirmation-section"><h2>Order details</h2>${order.items.map(item => `<div class="confirmation-item"><div><strong>${escapeHTML(item.name)}</strong><span>Quantity: ${item.quantity}</span>${item.customDescription ? `<small>Your request: ${escapeHTML(item.customDescription)}</small>` : ""}</div><strong>${formatCurrency(item.unitPrice * item.quantity, order.currency)}</strong></div>`).join("")}<div class="confirmation-total"><div><span>Items</span><span>${formatCurrency(order.subtotal, order.currency)}</span></div><div><span>Delivery</span><span>${formatCurrency(order.shipping, order.currency)}</span></div><div class="confirmation-grand-total"><strong>Total</strong><strong>${formatCurrency(order.total, order.currency)}</strong></div></div></section><section class="confirmation-section"><h2>Delivery</h2><p>${escapeHTML(order.customerName)} · ${escapeHTML(order.phone)}</p><p>${escapeHTML(order.address)}</p></section><section class="confirmation-section"><h2>Payment</h2>${bankDetails ? `<p>Complete your bank transfer using your order reference as the payment description.</p><div class="confirmation-bank"><span>Bank</span><strong>${escapeHTML(bankDetails.bankName)}</strong><span>Account name</span><strong>${escapeHTML(bankDetails.accountName)}</strong><span>Account number</span><strong>${escapeHTML(bankDetails.accountNumber)}</strong>${bankDetails.instructions ? `<span>Payment instructions</span><strong>${escapeHTML(bankDetails.instructions)}</strong>` : ""}</div>` : `<p class="muted">The store owner has not added bank details yet. Please contact the store owner to arrange payment.</p>`}</section><a class="button button-dark confirmation-home" href="/">Back to homepage <span>↗</span></a></div>`;
+  } catch (error) {
+    page.innerHTML = `<div class="order-confirmation-card"><p class="eyebrow">ORDER DETAILS</p><h1>We couldn’t load this order.</h1><p class="muted">${escapeHTML(error.message)} Sign in with the account used to place the order, then reopen its confirmation link.</p><a class="button button-dark confirmation-home" href="/">Back to homepage <span>↗</span></a></div>`;
+  }
+}
 function beginCheckout() {
   if (!state.cart.length) return renderCart();
   if (!state.currentUser) {
@@ -270,7 +284,7 @@ async function refreshDeliveryQuote(form) {
   }
 }
 async function completeOrder(values) {
-  const { order, bankDetails } = await api("/api/orders", {
+  const { order } = await api("/api/orders", {
     method: "POST",
     body: {
       name: values.name.trim(),
@@ -287,12 +301,9 @@ async function completeOrder(values) {
     },
   });
   state.cart = [];
-  persistCart();
-  renderPaymentInstructions(order, bankDetails);
-}
-function renderPaymentInstructions(order, bankDetails) {
-  openDrawer("Order received");
-  drawerContent.innerHTML = `<div class="notice">Thanks, ${escapeHTML(order.customerName)}. Your order <strong>${escapeHTML(order.reference)}</strong> is reserved while we wait for your transfer.</div><h3 class="admin-section-title">Bank transfer details</h3>${bankDetails ? `<div class="account-card"><span>Bank</span><strong>${escapeHTML(bankDetails.bankName)}</strong><span>Account name</span><strong>${escapeHTML(bankDetails.accountName)}</strong><span>Account number</span><strong>${escapeHTML(bankDetails.accountNumber)}</strong>${bankDetails.instructions ? `<span>Payment note</span><strong>${escapeHTML(bankDetails.instructions)}</strong>` : ""}</div><p class="muted">Use <strong>${escapeHTML(order.reference)}</strong> as your transfer reference. The store owner will confirm your order after the payment is received.</p>` : `<div class="admin-notice">The store owner has not added bank details yet. Your order is saved, but please contact the store owner to arrange payment.</div>`}<div class="order-card"><h3>Order total</h3><p>Items: ${formatCurrency(order.subtotal, order.currency)}</p><p>Delivery: ${formatCurrency(order.shipping, order.currency)}</p><p><strong>Total: ${formatCurrency(order.total, order.currency)}</strong> · ${order.items.reduce((sum, item) => sum + item.quantity, 0)} items</p><p>Delivering to: ${escapeHTML(order.address)}</p></div><button class="full-button" data-action="done">Continue shopping</button>`;
+  save(STORAGE.cart, state.cart);
+  updateCartCount();
+  window.location.assign(`/order-confirmation.html?reference=${encodeURIComponent(order.reference)}`);
 }
 function openAdmin(tab = "products") {
   if (!state.currentUser?.isAdmin) {
@@ -391,6 +402,10 @@ api("/api/bootstrap").then(async data => {
   state.currentUser = data.user;
   state.csrfToken = data.csrfToken;
   renderProducts();
+  if (window.location.pathname === "/order-confirmation.html") {
+    await renderOrderConfirmationPage(new URLSearchParams(window.location.search).get("reference"));
+    return;
+  }
   if (window.location.pathname === "/owner.html") openAdmin();
   if (state.currentUser) {
     try { await restoreAccountCart(); }

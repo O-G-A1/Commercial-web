@@ -255,6 +255,7 @@ app.use(session({
   },
 }));
 app.get("/owner.html", (_req, res) => res.sendFile(path.join(__dirname, "index.html")));
+app.get("/order-confirmation.html", (_req, res) => res.sendFile(path.join(__dirname, "index.html")));
 const heroImages = new Set([
   "cowrie-jewellery.jpg",
   "beaded-bags.jpg",
@@ -454,6 +455,26 @@ app.get("/api/account/orders", requireAuth, async (req, res, next) => {
   try {
     const { rows } = await pool.query("SELECT * FROM public.orders WHERE user_id = $1 ORDER BY created_at DESC", [req.session.user.id]);
     res.json({ orders: await Promise.all(rows.map(row => orderFromRow(row))) });
+  } catch (error) { next(error); }
+});
+app.get("/api/account/orders/:reference", requireAuth, async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT * FROM public.orders WHERE user_id = $1 AND reference = $2",
+      [req.session.user.id, req.params.reference],
+    );
+    if (!rows.length) return res.status(404).json({ error: "That order could not be found in your account." });
+    const { rows: settingsRows } = await pool.query(
+      "SELECT bank_name, account_name, account_number, payment_instructions FROM public.settings WHERE id = 1",
+    );
+    const settings = settingsRows[0];
+    const bankDetails = settings.bank_name && settings.account_name && settings.account_number ? {
+      bankName: settings.bank_name,
+      accountName: settings.account_name,
+      accountNumber: settings.account_number,
+      instructions: settings.payment_instructions,
+    } : null;
+    res.json({ order: await orderFromRow(rows[0]), bankDetails });
   } catch (error) { next(error); }
 });
 app.get("/api/cart", requireAuth, async (req, res, next) => {

@@ -54,6 +54,7 @@ Use a separate Supabase project for Vercel Preview deployments if you want to ke
 - Product and image administration is owner-only. The `/owner.html` URL is a convenient entry point, not an access-control mechanism; all admin APIs require an authenticated owner account. Public storefront responses never include bank account details.
 - The owner dashboard includes a Customers tab. Deleting a customer removes their account, saved cart, newsletter subscription, and active sessions, and clears their name, email, phone, and address from past orders. Historical order items, totals, and statuses remain available to the owner.
 - Order totals are recalculated by the server from current database prices. Orders and line items are committed in one transaction.
+- After checkout, customers are sent to a dedicated order-confirmation page with their order items, custom requests, delivery details, total, status, and available bank-transfer instructions. The order link requires the same signed-in customer account that placed it.
 - Store payment remains manual bank transfer: the app does not verify transfers, charge cards, send email, or calculate taxes.
 - Back up the Supabase database and configure its production security/backup settings. Product photos are stored separately in Supabase Storage.
 - If any credentials were committed to GitHub, revoke/rotate them. Removing a secret from a later commit does not remove it from Git history.
