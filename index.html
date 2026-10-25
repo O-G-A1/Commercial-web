@@ -140,7 +140,12 @@
             </select></label
           >
         </div>
-        <div class="product-grid" id="product-grid"></div>
+        <div class="product-grid" id="product-grid" aria-label="Loading products" aria-busy="true">
+          <div class="product-skeleton" aria-hidden="true"><span></span><i></i><i></i></div>
+          <div class="product-skeleton" aria-hidden="true"><span></span><i></i><i></i></div>
+          <div class="product-skeleton" aria-hidden="true"><span></span><i></i><i></i></div>
+          <div class="product-skeleton" aria-hidden="true"><span></span><i></i><i></i></div>
+        </div>
       </section>
       <section class="editorial">
         <div class="editorial-image"></div>

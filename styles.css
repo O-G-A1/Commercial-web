@@ -76,4 +76,20 @@
 .confirmation-bank span{color:var(--muted)}
 .confirmation-bank strong{overflow-wrap:anywhere}
 .confirmation-home{margin-top:28px;justify-content:center;width:100%}
+.confirmation-loading{display:grid;gap:9px;margin-top:24px}
+.confirmation-loading span{height:12px;border-radius:3px;background:linear-gradient(90deg,#f0eaf3 25%,#faf7fb 50%,#f0eaf3 75%);background-size:200% 100%;animation:confirmation-shimmer 1.4s ease-in-out infinite}
+.confirmation-loading span:nth-child(1){width:100%}.confirmation-loading span:nth-child(2){width:78%}.confirmation-loading span:nth-child(3){width:55%}
+@keyframes confirmation-shimmer{to{background-position:-200% 0}}
+.product-grid[aria-busy="true"]{min-height:clamp(260px,32vw,385px)}
+.product-skeleton{min-width:0;display:flex;flex-direction:column;gap:11px}
+.product-skeleton span,.product-skeleton i{display:block;border-radius:3px;background:linear-gradient(90deg,#eee8f1 25%,#f8f5f9 50%,#eee8f1 75%);background-size:200% 100%;animation:confirmation-shimmer 1.5s ease-in-out infinite}
+.product-skeleton span{height:clamp(190px,25vw,320px)}
+.product-skeleton i{height:10px;width:68%}
+.product-skeleton i:last-child{width:42%;height:8px}
+.admin-loading{min-height:150px;display:flex;align-items:center;justify-content:center;gap:10px;color:var(--muted);font-size:11px}
+.loading-spinner{display:inline-block;width:15px;height:15px;border:2px solid #d9cde1;border-top-color:#684b82;border-radius:50%;animation:loading-spin .75s linear infinite;vertical-align:middle}
+.full-button .loading-spinner{margin-right:7px;vertical-align:-3px;border-color:#ffffff75;border-top-color:#fff}
+@keyframes loading-spin{to{transform:rotate(360deg)}}
+.full-button:disabled{cursor:wait;opacity:.78}
 @media(max-width:480px){.order-confirmation-page .site-header{height:64px}.order-confirmation-page main{min-height:calc(100vh - 64px);padding:20px 12px}.order-confirmation-card{padding:24px 19px}.confirmation-reference,.confirmation-status{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.confirmation-loading span,.product-skeleton span,.product-skeleton i,.loading-spinner{animation:none}}

@@ -137,6 +137,8 @@ function effectivePrice(product) {
 }
 function renderProducts() {
   renderCategories();
+  $("#product-grid").setAttribute("aria-busy", "false");
+  $("#product-grid").removeAttribute("aria-label");
   const threshold = money(state.settings.freeShippingThreshold);
   $("#announcement-threshold").textContent = threshold;
   $("#shipping-threshold").textContent = threshold;
@@ -215,15 +217,21 @@ async function renderOrderConfirmationPage(reference) {
   document.body.classList.add("order-confirmation-page");
   const page = $("#order-confirmation");
   page.hidden = false;
-  page.innerHTML = `<div class="order-confirmation-card"><p class="eyebrow">BEADSBYBAMBIE · ORDER CONFIRMATION</p><h1>Your order is confirmed.</h1><p class="muted">Loading your order details…</p></div>`;
   document.title = "Order confirmation — BeadsbyBambie";
   try {
     if (!reference) throw new Error("No order reference was provided.");
     const { order, bankDetails } = await api(`/api/account/orders/${encodeURIComponent(reference)}`);
-    page.innerHTML = `<div class="order-confirmation-card"><div class="confirmation-mark" aria-hidden="true">✓</div><p class="eyebrow">THANK YOU FOR YOUR ORDER</p><h1>Your order is confirmed.</h1><p class="confirmation-intro">Thank you, ${escapeHTML(order.customerName)}. We’ve received your order and saved the details below.</p><div class="confirmation-reference"><span>Order reference</span><strong>${escapeHTML(order.reference)}</strong></div><div class="confirmation-status"><span>Current status</span><strong>${escapeHTML(order.status)}</strong></div><section class="confirmation-section"><h2>Order details</h2>${order.items.map(item => `<div class="confirmation-item"><div><strong>${escapeHTML(item.name)}</strong><span>Quantity: ${item.quantity}</span>${item.customDescription ? `<small>Your request: ${escapeHTML(item.customDescription)}</small>` : ""}</div><strong>${formatCurrency(item.unitPrice * item.quantity, order.currency)}</strong></div>`).join("")}<div class="confirmation-total"><div><span>Items</span><span>${formatCurrency(order.subtotal, order.currency)}</span></div><div><span>Delivery</span><span>${formatCurrency(order.shipping, order.currency)}</span></div><div class="confirmation-grand-total"><strong>Total</strong><strong>${formatCurrency(order.total, order.currency)}</strong></div></div></section><section class="confirmation-section"><h2>Delivery</h2><p>${escapeHTML(order.customerName)} · ${escapeHTML(order.phone)}</p><p>${escapeHTML(order.address)}</p></section><section class="confirmation-section"><h2>Payment</h2>${bankDetails ? `<p>Complete your bank transfer using your order reference as the payment description.</p><div class="confirmation-bank"><span>Bank</span><strong>${escapeHTML(bankDetails.bankName)}</strong><span>Account name</span><strong>${escapeHTML(bankDetails.accountName)}</strong><span>Account number</span><strong>${escapeHTML(bankDetails.accountNumber)}</strong>${bankDetails.instructions ? `<span>Payment instructions</span><strong>${escapeHTML(bankDetails.instructions)}</strong>` : ""}</div>` : `<p class="muted">The store owner has not added bank details yet. Please contact the store owner to arrange payment.</p>`}</section><a class="button button-dark confirmation-home" href="/">Back to homepage <span>↗</span></a></div>`;
+    presentOrderConfirmation(order, bankDetails);
   } catch (error) {
     page.innerHTML = `<div class="order-confirmation-card"><p class="eyebrow">ORDER DETAILS</p><h1>We couldn’t load this order.</h1><p class="muted">${escapeHTML(error.message)} Sign in with the account used to place the order, then reopen its confirmation link.</p><a class="button button-dark confirmation-home" href="/">Back to homepage <span>↗</span></a></div>`;
   }
+}
+function presentOrderConfirmation(order, bankDetails) {
+  document.body.classList.add("order-confirmation-page");
+  const page = $("#order-confirmation");
+  page.hidden = false;
+  document.title = "Order confirmation — BeadsbyBambie";
+  page.innerHTML = `<div class="order-confirmation-card"><div class="confirmation-mark" aria-hidden="true">✓</div><p class="eyebrow">THANK YOU FOR YOUR ORDER</p><h1>Your order is confirmed.</h1><p class="confirmation-intro">Thank you, ${escapeHTML(order.customerName)}. We’ve received your order and saved the details below.</p><div class="confirmation-reference"><span>Order reference</span><strong>${escapeHTML(order.reference)}</strong></div><div class="confirmation-status"><span>Current status</span><strong>${escapeHTML(order.status)}</strong></div><section class="confirmation-section"><h2>Order details</h2>${order.items.map(item => `<div class="confirmation-item"><div><strong>${escapeHTML(item.name)}</strong><span>Quantity: ${item.quantity}</span>${item.customDescription ? `<small>Your request: ${escapeHTML(item.customDescription)}</small>` : ""}</div><strong>${formatCurrency(item.unitPrice * item.quantity, order.currency)}</strong></div>`).join("")}<div class="confirmation-total"><div><span>Items</span><span>${formatCurrency(order.subtotal, order.currency)}</span></div><div><span>Delivery</span><span>${formatCurrency(order.shipping, order.currency)}</span></div><div class="confirmation-grand-total"><strong>Total</strong><strong>${formatCurrency(order.total, order.currency)}</strong></div></div></section><section class="confirmation-section"><h2>Delivery</h2><p>${escapeHTML(order.customerName)} · ${escapeHTML(order.phone)}</p><p>${escapeHTML(order.address)}</p></section><section class="confirmation-section"><h2>Payment</h2>${bankDetails ? `<p>Complete your bank transfer using your order reference as the payment description.</p><div class="confirmation-bank"><span>Bank</span><strong>${escapeHTML(bankDetails.bankName)}</strong><span>Account name</span><strong>${escapeHTML(bankDetails.accountName)}</strong><span>Account number</span><strong>${escapeHTML(bankDetails.accountNumber)}</strong>${bankDetails.instructions ? `<span>Payment instructions</span><strong>${escapeHTML(bankDetails.instructions)}</strong>` : ""}</div>` : `<p class="muted">The store owner has not added bank details yet. Please contact the store owner to arrange payment.</p>`}</section><a class="button button-dark confirmation-home" href="/">Back to homepage <span>↗</span></a></div>`;
 }
 function beginCheckout() {
   if (!state.cart.length) return renderCart();
@@ -284,7 +292,7 @@ async function refreshDeliveryQuote(form) {
   }
 }
 async function completeOrder(values) {
-  const { order } = await api("/api/orders", {
+  const { order, bankDetails } = await api("/api/orders", {
     method: "POST",
     body: {
       name: values.name.trim(),
@@ -303,7 +311,10 @@ async function completeOrder(values) {
   state.cart = [];
   save(STORAGE.cart, state.cart);
   updateCartCount();
-  window.location.assign(`/order-confirmation.html?reference=${encodeURIComponent(order.reference)}`);
+  closeDrawer();
+  const confirmationUrl = `/order-confirmation.html?reference=${encodeURIComponent(order.reference)}`;
+  history.replaceState(null, "", confirmationUrl);
+  presentOrderConfirmation(order, bankDetails);
 }
 function openAdmin(tab = "products") {
   if (!state.currentUser?.isAdmin) {
@@ -318,7 +329,7 @@ function openAdmin(tab = "products") {
 }
 async function renderAdmin() {
   const tabs = ["products", "orders", "customers", "settings"];
-  drawerContent.innerHTML = `<div class="admin-tabs">${tabs.map(tab => `<button class="admin-tab${state.adminTab === tab ? " active" : ""}" data-admin-tab="${tab}">${tab[0].toUpperCase()}${tab.slice(1)}</button>`).join("")}</div><p class="muted">Loading…</p>`;
+  drawerContent.innerHTML = `<div class="admin-tabs">${tabs.map(tab => `<button class="admin-tab${state.adminTab === tab ? " active" : ""}" data-admin-tab="${tab}">${tab[0].toUpperCase()}${tab.slice(1)}</button>`).join("")}</div><div class="admin-loading" role="status"><span class="loading-spinner" aria-hidden="true"></span><span>Loading ${escapeHTML(state.adminTab)}…</span></div>`;
   try {
     if (state.adminTab === "orders") ({ orders: state.adminOrders } = await api("/api/admin/orders"));
     if (state.adminTab === "customers") ({ customers: state.adminCustomers } = await api("/api/admin/customers"));
@@ -396,24 +407,32 @@ if (heroSlides.length > 1 && heroSlides.length === heroSlideDots.length) {
   showHeroSlide(0);
   startHeroTimer();
 }
-api("/api/bootstrap").then(async data => {
+async function initializeStorefront() {
+  if (window.location.pathname === "/order-confirmation.html") {
+    await renderOrderConfirmationPage(new URLSearchParams(window.location.search).get("reference"));
+    return;
+  }
+  const data = await api("/api/bootstrap");
   state.products = data.products;
   state.settings = { ...state.settings, ...data.settings };
   state.currentUser = data.user;
   state.csrfToken = data.csrfToken;
   renderProducts();
-  if (window.location.pathname === "/order-confirmation.html") {
-    await renderOrderConfirmationPage(new URLSearchParams(window.location.search).get("reference"));
-    return;
-  }
   if (window.location.pathname === "/owner.html") openAdmin();
   if (state.currentUser) {
     try { await restoreAccountCart(); }
     catch (error) { showToast(error.message); }
   }
-}).catch(error => {
+}
+initializeStorefront().catch(error => {
   console.error("Unable to load the storefront.", error);
-  $("#product-grid").innerHTML = `<div class="empty-state"><h3>Store temporarily unavailable</h3><p>${escapeHTML(error.message)} Please refresh the page.</p></div>`;
+  if (window.location.pathname === "/order-confirmation.html") {
+    $("#order-confirmation").innerHTML = `<div class="order-confirmation-card"><p class="eyebrow">ORDER DETAILS</p><h1>We couldn’t load this order.</h1><p class="muted">${escapeHTML(error.message)} Please refresh the page to try again.</p><a class="button button-dark confirmation-home" href="/">Back to homepage <span>↗</span></a></div>`;
+  } else {
+    $("#product-grid").innerHTML = `<div class="empty-state"><h3>Store temporarily unavailable</h3><p>${escapeHTML(error.message)} Please refresh the page.</p></div>`;
+    $("#product-grid").setAttribute("aria-busy", "false");
+    $("#product-grid").removeAttribute("aria-label");
+  }
 });
 
 document.addEventListener("click", async event => {
@@ -542,11 +561,15 @@ document.addEventListener("submit", async event => {
     event.preventDefault();
     const submitButton = $(".full-button", form);
     submitButton.disabled = true;
+    submitButton.dataset.originalText = submitButton.textContent;
+    submitButton.innerHTML = `<span class="loading-spinner" aria-hidden="true"></span> Placing your order…`;
     try {
       await completeOrder(formObject(form));
     } catch (error) {
       showToast(error.message);
       submitButton.disabled = false;
+      submitButton.textContent = submitButton.dataset.originalText || "Place order";
+      delete submitButton.dataset.originalText;
     }
   } else if (form.id === "product-form") {
     event.preventDefault();

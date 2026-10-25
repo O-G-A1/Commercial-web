@@ -255,7 +255,24 @@ app.use(session({
   },
 }));
 app.get("/owner.html", (_req, res) => res.sendFile(path.join(__dirname, "index.html")));
-app.get("/order-confirmation.html", (_req, res) => res.sendFile(path.join(__dirname, "index.html")));
+app.get("/order-confirmation.html", async (_req, res, next) => {
+  try {
+    const html = await fs.promises.readFile(path.join(__dirname, "index.html"), "utf8");
+    const bodyTag = "<body>";
+    const confirmationSlot = '<section class="order-confirmation" id="order-confirmation" aria-live="polite" hidden></section>';
+    const confirmationMarkup = `<section class="order-confirmation" id="order-confirmation" aria-live="polite"><div class="order-confirmation-card"><div class="confirmation-mark" aria-hidden="true">✓</div><p class="eyebrow">BEADSBYBAMBIE · ORDER CONFIRMATION</p><h1>Your order is being prepared.</h1><p class="muted">Loading your order details…</p><div class="confirmation-loading" aria-hidden="true"><span></span><span></span><span></span></div></div></section>`;
+    if (!html.includes(bodyTag) || !html.includes(confirmationSlot)) {
+      throw new Error("The order confirmation page template is incomplete.");
+    }
+    res.set("Cache-Control", "no-store");
+    res.type("html").send(
+      html
+        .replace("<body>", '<body class="order-confirmation-page">')
+        .replace("<title>BeadsbyBambie — Hand-beaded bags & accessories</title>", "<title>Order confirmation — BeadsbyBambie</title>")
+        .replace('<section class="order-confirmation" id="order-confirmation" aria-live="polite" hidden></section>', confirmationMarkup),
+    );
+  } catch (error) { next(error); }
+});
 const heroImages = new Set([
   "cowrie-jewellery.jpg",
   "beaded-bags.jpg",
