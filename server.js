@@ -125,6 +125,11 @@ async function initialize() {
     "ALTER TABLE public.orders ALTER COLUMN user_id DROP NOT NULL",
   );
   await pool.query(
+    `ALTER TABLE public.orders
+     ADD COLUMN IF NOT EXISTS delivery_days_min integer,
+     ADD COLUMN IF NOT EXISTS delivery_days_max integer`,
+  );
+  await pool.query(
     "INSERT INTO public.settings (id,currency,shipping_fee,free_shipping_threshold) VALUES (1,'NGN',3500,100000) ON CONFLICT (id) DO NOTHING",
   );
   await pool.query(
@@ -387,6 +392,9 @@ async function orderFromRow(row, client = pool) {
     reference: row.reference, customerName: row.customer_name, customerEmail: row.customer_email,
     phone: row.phone, address: row.address, subtotal: Number(row.subtotal),
     shipping: Number(row.shipping), total: Number(row.total), currency: row.currency,
+    deliveryDays: Number.isInteger(row.delivery_days_min) && Number.isInteger(row.delivery_days_max)
+      ? { minimum: row.delivery_days_min, maximum: row.delivery_days_max }
+      : null,
     status: row.status, createdAt: row.created_at, items: rows.map(item => ({ ...item, unitPrice: Number(item.unitPrice) })),
   };
 }
@@ -757,14 +765,15 @@ app.post("/api/orders", checkoutLimiter, requireAuth, requireCsrf, async (req, r
     const subtotal = Math.round(products.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) * 100) / 100;
     const { rows: settingsRows } = await client.query("SELECT * FROM public.settings WHERE id=1");
     const settings = settingsRows[0];
-    const { fee: shipping } = calculateDeliveryQuote(countryCode, stateName, subtotal, settings);
+    const deliveryQuote = calculateDeliveryQuote(countryCode, stateName, subtotal, settings);
+    const shipping = deliveryQuote.fee;
     const total = Math.round((subtotal + shipping) * 100) / 100;
     const orderId = crypto.randomUUID();
     const reference = `FM-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
     const { rows: orderRows } = await client.query(
-      `INSERT INTO public.orders (id,reference,user_id,customer_name,customer_email,phone,address,subtotal,shipping,total,currency,status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'Awaiting payment') RETURNING *`,
-      [orderId, reference, req.session.user.id, name, req.session.user.email, phone, address, subtotal, shipping, total, settings.currency],
+      `INSERT INTO public.orders (id,reference,user_id,customer_name,customer_email,phone,address,subtotal,shipping,total,currency,status,delivery_days_min,delivery_days_max)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'Awaiting payment',$12,$13) RETURNING *`,
+      [orderId, reference, req.session.user.id, name, req.session.user.email, phone, address, subtotal, shipping, total, settings.currency, deliveryQuote.deliveryDays.minimum, deliveryQuote.deliveryDays.maximum],
     );
     for (const item of products) {
       await client.query(

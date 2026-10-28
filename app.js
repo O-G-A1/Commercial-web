@@ -32,6 +32,9 @@ const drawerKicker = $("#drawer-kicker");
 const drawerContent = $("#drawer-content");
 let toastTimer;
 let cartSync = Promise.resolve();
+const viewerPointers = new Map();
+let viewerDrag = null;
+let viewerPinch = null;
 
 function load(key, fallback) {
   try {
@@ -227,7 +230,21 @@ function openProductViewer(id) {
   const product = state.products.find((item) => item.id === id);
   if (!product) return showToast("That product is no longer available.");
   openDrawer(product.name, "PRODUCT DETAILS");
-  drawerContent.innerHTML = `<div class="product-viewer"><div class="product-viewer-image"><img id="product-view-image" src="${escapeHTML(product.image)}" alt="${escapeHTML(product.name)}"></div><div class="product-viewer-controls" role="group" aria-label="Product image controls"><button type="button" data-view-control="zoom-out" aria-label="Zoom out">−</button><button type="button" data-view-control="zoom-in" aria-label="Zoom in">+</button><button type="button" data-view-control="rotate-left" aria-label="Rotate left">↶</button><button type="button" data-view-control="rotate-right" aria-label="Rotate right">↷</button><button type="button" data-view-control="reset" aria-label="Reset image view">Reset view</button></div><p class="product-viewer-hint">Zoom and rotate the product photo to see more detail.</p><p class="product-viewer-price">${displayPrice(product)}</p><p class="product-viewer-category">${escapeHTML(product.category)}</p>${product.description ? `<p class="product-viewer-description">${escapeHTML(product.description)}</p>` : ""}<button class="full-button" type="button" data-add="${escapeHTML(product.id)}">Add to bag</button></div>`;
+  drawerContent.innerHTML = `<div class="product-viewer"><div class="product-viewer-image" aria-label="Drag to pan. Use the controls to zoom or rotate."><img id="product-view-image" class="zoom-100 rotation-0" src="${escapeHTML(product.image)}" alt="${escapeHTML(product.name)}" draggable="false"></div><div class="product-viewer-controls" role="group" aria-label="Product image controls"><button type="button" data-view-control="zoom-out" aria-label="Zoom out">−</button><button type="button" data-view-control="zoom-in" aria-label="Zoom in">+</button><button type="button" data-view-control="rotate-left" aria-label="Rotate left">↶</button><button type="button" data-view-control="rotate-right" aria-label="Rotate right">↷</button><button type="button" data-view-control="reset" aria-label="Reset image view">Reset view</button></div><p class="product-viewer-hint">Drag the image to pan. Use + / − or Ctrl/⌘ + scroll to zoom.</p><p class="product-viewer-price">${displayPrice(product)}</p><p class="product-viewer-category">${escapeHTML(product.category)}</p>${product.description ? `<p class="product-viewer-description">${escapeHTML(product.description)}</p>` : ""}<button class="full-button" type="button" data-add="${escapeHTML(product.id)}">Add to bag</button></div>`;
+}
+function setViewerZoom(image, zoom) {
+  const boundedZoom = Math.max(100, Math.min(300, zoom));
+  image.classList.forEach((name) => {
+    if (name.startsWith("zoom-")) image.classList.remove(name);
+  });
+  image.classList.add(`zoom-${boundedZoom}`);
+}
+function setViewerRotation(image, rotation) {
+  const normalizedRotation = (rotation + 360) % 360;
+  image.classList.forEach((name) => {
+    if (name.startsWith("rotation-")) image.classList.remove(name);
+  });
+  image.classList.add(`rotation-${normalizedRotation}`);
 }
 function openDrawer(
   title,
@@ -328,7 +345,10 @@ function presentOrderConfirmation(order, bankDetails) {
   const page = $("#order-confirmation");
   page.hidden = false;
   document.title = "Order confirmation — BeadsbyBambie";
-  page.innerHTML = `<div class="order-confirmation-card"><div class="confirmation-mark" aria-hidden="true">✓</div><p class="eyebrow">THANK YOU FOR YOUR ORDER</p><h1>Your order is confirmed.</h1><p class="confirmation-intro">Thank you, ${escapeHTML(order.customerName)}. We’ve received your order and saved the details below.</p><div class="confirmation-reference"><span>Order reference</span><strong>${escapeHTML(order.reference)}</strong></div><div class="confirmation-status"><span>Current status</span><strong>${escapeHTML(order.status)}</strong></div><section class="confirmation-section"><h2>Order details</h2>${order.items.map((item) => `<div class="confirmation-item"><div><strong>${escapeHTML(item.name)}</strong><span>Quantity: ${item.quantity}</span>${item.customDescription ? `<small>Your request: ${escapeHTML(item.customDescription)}</small>` : ""}</div><strong>${formatCurrency(item.unitPrice * item.quantity, order.currency)}</strong></div>`).join("")}<div class="confirmation-total"><div><span>Items</span><span>${formatCurrency(order.subtotal, order.currency)}</span></div><div><span>Delivery</span><span>${formatCurrency(order.shipping, order.currency)}</span></div><div class="confirmation-grand-total"><strong>Total</strong><strong>${formatCurrency(order.total, order.currency)}</strong></div></div></section><section class="confirmation-section"><h2>Delivery</h2><p>${escapeHTML(order.customerName)} · ${escapeHTML(order.phone)}</p><p>${escapeHTML(order.address)}</p></section><section class="confirmation-section"><h2>Payment</h2>${bankDetails ? `<p>Complete your bank transfer using your order reference as the payment description.</p><div class="confirmation-bank"><span>Bank</span><strong>${escapeHTML(bankDetails.bankName)}</strong><span>Account name</span><strong>${escapeHTML(bankDetails.accountName)}</strong><span>Account number</span><strong>${escapeHTML(bankDetails.accountNumber)}</strong>${bankDetails.instructions ? `<span>Payment instructions</span><strong>${escapeHTML(bankDetails.instructions)}</strong>` : ""}</div>` : `<p class="muted">The store owner has not added bank details yet. Please contact the store owner to arrange payment.</p>`}</section>${confirmationActions()}</div>`;
+  const deliveryTimeline = order.deliveryDays
+    ? `<div class="delivery-timeline"><strong>Estimated delivery</strong><span>${order.deliveryDays.minimum}–${order.deliveryDays.maximum} working days</span><small>Delivery timing is an estimate and may vary by courier and destination.</small></div>`
+    : `<p class="muted">A delivery timeline was not recorded for this order.</p>`;
+  page.innerHTML = `<div class="order-confirmation-card"><div class="confirmation-mark" aria-hidden="true">✓</div><p class="eyebrow">THANK YOU FOR YOUR ORDER</p><h1>Your order is confirmed.</h1><p class="confirmation-intro">Thank you, ${escapeHTML(order.customerName)}. We’ve received your order and saved the details below.</p><div class="confirmation-reference"><span>Order reference</span><strong>${escapeHTML(order.reference)}</strong></div><div class="confirmation-status"><span>Current status</span><strong>${escapeHTML(order.status)}</strong></div><section class="confirmation-section"><h2>Order details</h2>${order.items.map((item) => `<div class="confirmation-item"><div><strong>${escapeHTML(item.name)}</strong><span>Quantity: ${item.quantity}</span>${item.customDescription ? `<small>Your request: ${escapeHTML(item.customDescription)}</small>` : ""}</div><strong>${formatCurrency(item.unitPrice * item.quantity, order.currency)}</strong></div>`).join("")}<div class="confirmation-total"><div><span>Items</span><span>${formatCurrency(order.subtotal, order.currency)}</span></div><div><span>Delivery</span><span>${formatCurrency(order.shipping, order.currency)}</span></div><div class="confirmation-grand-total"><strong>Total</strong><strong>${formatCurrency(order.total, order.currency)}</strong></div></div></section><section class="confirmation-section"><h2>Delivery</h2>${deliveryTimeline}<p>${escapeHTML(order.customerName)} · ${escapeHTML(order.phone)}</p><p>${escapeHTML(order.address)}</p></section><section class="confirmation-section"><h2>Payment</h2>${bankDetails ? `<p>Complete your bank transfer using your order reference as the payment description.</p><div class="confirmation-bank"><span>Bank</span><strong>${escapeHTML(bankDetails.bankName)}</strong><span>Account name</span><strong>${escapeHTML(bankDetails.accountName)}</strong><span>Account number</span><strong>${escapeHTML(bankDetails.accountNumber)}</strong>${bankDetails.instructions ? `<span>Payment instructions</span><strong>${escapeHTML(bankDetails.instructions)}</strong>` : ""}</div>` : `<p class="muted">The store owner has not added bank details yet. Please contact the store owner to arrange payment.</p>`}</section>${confirmationActions()}</div>`;
 }
 function beginCheckout() {
   if (!state.cart.length) return renderCart();
@@ -573,23 +593,22 @@ document.addEventListener("click", async (event) => {
     openProductViewer(target.dataset.viewProduct);
   else if (target.matches("[data-view-control]")) {
     const image = $("#product-view-image");
-    const zoom = Number(image.dataset.zoom || 1);
-    const rotation = Number(image.dataset.rotation || 0);
-    if (target.dataset.viewControl === "zoom-in")
-      image.dataset.zoom = String(Math.min(3, zoom + 0.25));
-    else if (target.dataset.viewControl === "zoom-out")
-      image.dataset.zoom = String(Math.max(1, zoom - 0.25));
-    else if (target.dataset.viewControl === "rotate-left")
-      image.dataset.rotation = String((rotation - 90 + 360) % 360);
+    const zoom = Number([...image.classList].find((name) => name.startsWith("zoom-"))?.slice(5) || 100);
+    const rotation = Number([...image.classList].find((name) => name.startsWith("rotation-"))?.slice(9) || 0);
+    const viewport = $(".product-viewer-image");
+    if (target.dataset.viewControl === "zoom-in" || target.dataset.viewControl === "zoom-out") {
+      const direction = target.dataset.viewControl === "zoom-in" ? 25 : -25;
+      setViewerZoom(image, zoom + direction);
+    } else if (target.dataset.viewControl === "rotate-left")
+      setViewerRotation(image, rotation - 90);
     else if (target.dataset.viewControl === "rotate-right")
-      image.dataset.rotation = String((rotation + 90) % 360);
+      setViewerRotation(image, rotation + 90);
     else {
-      image.dataset.zoom = "1";
-      image.dataset.rotation = "0";
+      setViewerZoom(image, 100);
+      setViewerRotation(image, 0);
+      viewport.scrollTo({ left: 0, top: 0 });
     }
-    image.style.transform = `rotate(${image.dataset.rotation}deg) scale(${image.dataset.zoom})`;
-  }
-  else if (target.matches(".cart-trigger")) openCart();
+  } else if (target.matches(".cart-trigger")) openCart();
   else if (target.matches(".account-toggle")) openAccount();
   else if (target.matches(".search-toggle")) {
     const query = prompt("Search the collection");
@@ -904,3 +923,84 @@ document.addEventListener("change", async (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !overlay.hidden) closeDrawer();
 });
+
+drawerContent.addEventListener("pointerdown", (event) => {
+  const viewport = event.target.closest(".product-viewer-image");
+  if (!viewport || event.button > 0) return;
+  viewerPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  viewport.setPointerCapture(event.pointerId);
+  if (viewerPointers.size === 1) {
+    viewerDrag = {
+      viewport,
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      scrollLeft: viewport.scrollLeft,
+      scrollTop: viewport.scrollTop,
+    };
+    viewport.classList.add("is-dragging");
+  } else if (viewerPointers.size === 2) {
+    viewerDrag = null;
+    viewerPinch = {
+      viewport,
+      distance: pointerDistance([...viewerPointers.values()]),
+      zoom: Number([...$("#product-view-image").classList].find((name) => name.startsWith("zoom-"))?.slice(5) || 100),
+    };
+    viewport.classList.remove("is-dragging");
+  }
+});
+drawerContent.addEventListener("pointermove", (event) => {
+  const point = viewerPointers.get(event.pointerId);
+  if (!point) return;
+  viewerPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  if (viewerPinch && viewerPointers.size > 1) {
+    const distance = pointerDistance([...viewerPointers.values()]);
+    const zoom = Math.round((viewerPinch.zoom * distance / viewerPinch.distance) / 25) * 25;
+    setViewerZoom($("#product-view-image"), zoom);
+    return;
+  }
+  if (!viewerDrag || viewerDrag.pointerId !== event.pointerId) return;
+  viewerDrag.viewport.scrollLeft =
+    viewerDrag.scrollLeft - (event.clientX - viewerDrag.x);
+  viewerDrag.viewport.scrollTop =
+    viewerDrag.scrollTop - (event.clientY - viewerDrag.y);
+});
+function endViewerPointer(event) {
+  viewerPointers.delete(event.pointerId);
+  if (viewerPinch) {
+    viewerPinch.viewport.classList.remove("is-dragging");
+    viewerPinch = null;
+  }
+  if (viewerDrag?.pointerId === event.pointerId) {
+    viewerDrag.viewport.classList.remove("is-dragging");
+    viewerDrag = null;
+  }
+  if (!viewerDrag && viewerPointers.size === 1) {
+    const [pointerId, point] = [...viewerPointers.entries()][0];
+    const viewport = $(".product-viewer-image");
+    viewerDrag = {
+      viewport,
+      pointerId,
+      x: point.x,
+      y: point.y,
+      scrollLeft: viewport.scrollLeft,
+      scrollTop: viewport.scrollTop,
+    };
+    viewport.classList.add("is-dragging");
+  }
+}
+function pointerDistance(points) {
+  const [first, second] = points;
+  return Math.hypot(second.x - first.x, second.y - first.y);
+}
+drawerContent.addEventListener("pointerup", endViewerPointer);
+drawerContent.addEventListener("pointercancel", endViewerPointer);
+drawerContent.addEventListener("wheel", (event) => {
+  if (!event.ctrlKey && !event.metaKey) return;
+  const viewport = event.target.closest(".product-viewer-image");
+  if (!viewport) return;
+  event.preventDefault();
+  const image = $("#product-view-image");
+  const zoom = Number([...image.classList].find((name) => name.startsWith("zoom-"))?.slice(5) || 100);
+  setViewerZoom(image, zoom + (event.deltaY < 0 ? 25 : -25));
+}, { passive: false });

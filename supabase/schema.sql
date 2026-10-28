@@ -51,6 +51,8 @@ create table if not exists public.orders (
   total numeric(12,2) not null,
   currency text not null,
   status text not null default 'Awaiting payment',
+  delivery_days_min integer,
+  delivery_days_max integer,
   created_at timestamptz not null default now()
 );
 
