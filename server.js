@@ -341,7 +341,12 @@ function safeSettings(row, includePrivate = false) {
 }
 function calculateDeliveryQuote(countryCode, stateName, subtotal, settings) {
   if (countryCode === "INTL") {
-    return { fee: Number(settings.international_delivery_fee), estimatedRoadKm: null, isFree: false };
+    return {
+      fee: Number(settings.international_delivery_fee),
+      estimatedRoadKm: null,
+      isFree: false,
+      deliveryDays: { minimum: 7, maximum: 14, unit: "working days" },
+    };
   }
   if (countryCode !== "NG") throw Object.assign(new Error("Choose a valid delivery destination."), { status: 400 });
   const location = deliveryLocationByName.get(String(stateName || "").toLowerCase());
@@ -359,7 +364,12 @@ function calculateDeliveryQuote(countryCode, stateName, subtotal, settings) {
     (Number(settings.domestic_delivery_base_fee) + estimatedRoadKm * Number(settings.domestic_delivery_per_km_fee)) / 500,
   ) * 500;
   const isFree = subtotal >= Number(settings.free_shipping_threshold);
-  return { fee: isFree ? 0 : calculatedFee, estimatedRoadKm, isFree };
+  return {
+    fee: isFree ? 0 : calculatedFee,
+    estimatedRoadKm,
+    isFree,
+    deliveryDays: { minimum: 2, maximum: 5, unit: "working days" },
+  };
 }
 function productFromRow(row) {
   return {

@@ -1,6 +1,6 @@
 # BeadsbyBambie beaded goods
 
-Responsive Nigeria-focused storefront for hand-beaded bags, clutches, jewellery, and accessories, with customer accounts, owner product management, photo uploads, carts, orders, and manual bank-transfer checkout. Production data is stored in Supabase Postgres; product photos are stored in Supabase Storage. The app is configured for Vercel Functions.
+Responsive Nigeria-focused storefront for hand-beaded bags, clutches, jewellery, and accessories, with customer accounts, owner product management, photo uploads, product photo zoom and rotation, carts, orders, and manual bank-transfer checkout. Checkout shows estimated delivery fees and timing by destination (2–5 working days within Nigeria and 7–14 working days internationally); these are estimates, not live courier quotes. Production data is stored in Supabase Postgres; product photos are stored in Supabase Storage. The app is configured for Vercel Functions.
 
 ## Supabase setup
 

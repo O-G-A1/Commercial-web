@@ -211,7 +211,9 @@ function renderProducts() {
           (product) => `
     <article class="product-card">
       <div class="product-image-wrap">
+        <button class="product-view-button" type="button" data-view-product="${escapeHTML(product.id)}" aria-label="View ${escapeHTML(product.name)} details">
           <img class="product-image" src="${escapeHTML(product.image)}" alt="${escapeHTML(product.name)}" loading="lazy">
+        </button>
         ${product.badge ? `<span class="product-badge">${escapeHTML(product.badge)}</span>` : ""}
         <button class="quick-add" data-add="${escapeHTML(product.id)}" aria-label="Add ${escapeHTML(product.name)} to bag">+</button>
       </div>
@@ -220,6 +222,12 @@ function renderProducts() {
         )
         .join("")
     : `<div class="empty-state"><h3>No pieces found</h3><p>Try another category or search for something else.</p></div>`;
+}
+function openProductViewer(id) {
+  const product = state.products.find((item) => item.id === id);
+  if (!product) return showToast("That product is no longer available.");
+  openDrawer(product.name, "PRODUCT DETAILS");
+  drawerContent.innerHTML = `<div class="product-viewer"><div class="product-viewer-image"><img id="product-view-image" src="${escapeHTML(product.image)}" alt="${escapeHTML(product.name)}"></div><div class="product-viewer-controls" role="group" aria-label="Product image controls"><button type="button" data-view-control="zoom-out" aria-label="Zoom out">−</button><button type="button" data-view-control="zoom-in" aria-label="Zoom in">+</button><button type="button" data-view-control="rotate-left" aria-label="Rotate left">↶</button><button type="button" data-view-control="rotate-right" aria-label="Rotate right">↷</button><button type="button" data-view-control="reset" aria-label="Reset image view">Reset view</button></div><p class="product-viewer-hint">Zoom and rotate the product photo to see more detail.</p><p class="product-viewer-price">${displayPrice(product)}</p><p class="product-viewer-category">${escapeHTML(product.category)}</p>${product.description ? `<p class="product-viewer-description">${escapeHTML(product.description)}</p>` : ""}<button class="full-button" type="button" data-add="${escapeHTML(product.id)}">Add to bag</button></div>`;
 }
 function openDrawer(
   title,
@@ -380,10 +388,12 @@ async function refreshDeliveryQuote(form) {
     if (requestId !== quoteRequestId) return;
     feeDisplay.textContent = quote.fee ? money(quote.fee) : "Complimentary";
     totalDisplay.textContent = money(subtotal + quote.fee);
+    const deliveryDays = quote.deliveryDays;
+    const deliveryWindow = `${deliveryDays.minimum}–${deliveryDays.maximum} ${deliveryDays.unit}`;
     estimateDisplay.textContent =
       destination === "NG"
-        ? `${thresholdFree ? "Free Nigerian delivery applies. " : ""}Reference distance from Abeokuta to the state capital: about ${quote.estimatedRoadKm} km. Final courier route may vary.`
-        : "Flat international delivery estimate; customs charges, if any, are not included.";
+        ? `Estimated delivery: ${deliveryWindow}. ${thresholdFree ? "Free Nigerian delivery applies. " : ""}Reference distance from Abeokuta to the state capital: about ${quote.estimatedRoadKm} km. Final courier route may vary.`
+        : `Estimated delivery: ${deliveryWindow}. Flat international delivery estimate; customs charges, if any, are not included.`;
     submitButton.disabled = false;
   } catch (error) {
     if (requestId !== quoteRequestId) return;
@@ -559,6 +569,26 @@ document.addEventListener("click", async (event) => {
   const target = event.target.closest("button, a");
   if (!target) return;
   if (target.matches(".quick-add")) addToCart(target.dataset.add);
+  else if (target.matches("[data-view-product]"))
+    openProductViewer(target.dataset.viewProduct);
+  else if (target.matches("[data-view-control]")) {
+    const image = $("#product-view-image");
+    const zoom = Number(image.dataset.zoom || 1);
+    const rotation = Number(image.dataset.rotation || 0);
+    if (target.dataset.viewControl === "zoom-in")
+      image.dataset.zoom = String(Math.min(3, zoom + 0.25));
+    else if (target.dataset.viewControl === "zoom-out")
+      image.dataset.zoom = String(Math.max(1, zoom - 0.25));
+    else if (target.dataset.viewControl === "rotate-left")
+      image.dataset.rotation = String((rotation - 90 + 360) % 360);
+    else if (target.dataset.viewControl === "rotate-right")
+      image.dataset.rotation = String((rotation + 90) % 360);
+    else {
+      image.dataset.zoom = "1";
+      image.dataset.rotation = "0";
+    }
+    image.style.transform = `rotate(${image.dataset.rotation}deg) scale(${image.dataset.zoom})`;
+  }
   else if (target.matches(".cart-trigger")) openCart();
   else if (target.matches(".account-toggle")) openAccount();
   else if (target.matches(".search-toggle")) {
